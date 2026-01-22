@@ -76,13 +76,19 @@ export function Dashboard() {
             Monitor Copilot Studio discussions on Reddit
           </p>
         </div>
-        <Button
-          onClick={handleScrape}
-          disabled={scraping || scrapeStatus?.is_running}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${scrapeStatus?.is_running ? "animate-spin" : ""}`} />
-          {scrapeStatus?.is_running ? "Scraping..." : "Scrape Now"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={loadData}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button
+            onClick={handleScrape}
+            disabled={scraping || scrapeStatus?.is_running}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${scrapeStatus?.is_running ? "animate-spin" : ""}`} />
+            {scrapeStatus?.is_running ? "Scraping..." : "Scrape Now"}
+          </Button>
+        </div>
       </div>
 
       {/* Stats cards */}

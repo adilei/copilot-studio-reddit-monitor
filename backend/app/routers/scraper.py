@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
+import asyncio
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.schemas import ScrapeRequest, ScrapeStatus
 from app.services.reddit_scraper import scraper
+from app.models import Post
+from app.models.post import PostStatus
 
 router = APIRouter(prefix="/api/scrape", tags=["scraper"])
 
@@ -69,3 +72,29 @@ def get_scrape_status():
         posts_scraped=status["posts_scraped"],
         errors=status["errors"],
     )
+
+
+def run_analyze_all():
+    """Background task to analyze all pending posts."""
+    from app.services.llm_analyzer import analyzer
+
+    db = SessionLocal()
+    try:
+        pending = db.query(Post).filter(
+            Post.status == PostStatus.PENDING.value
+        ).all()
+
+        for post in pending:
+            try:
+                asyncio.run(analyzer.analyze_post(db, post))
+            except Exception as e:
+                print(f"Failed to analyze {post.id}: {e}")
+    finally:
+        db.close()
+
+
+@router.post("/analyze-all")
+def trigger_analyze_all(background_tasks: BackgroundTasks):
+    """Analyze all pending posts."""
+    background_tasks.add_task(run_analyze_all)
+    return {"message": "Analysis started for all pending posts"}

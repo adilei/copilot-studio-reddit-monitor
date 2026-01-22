@@ -1,5 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+import asyncio
 import logging
 
 from app.config import get_settings
@@ -30,6 +31,15 @@ class SchedulerService:
             replace_existing=True,
         )
 
+        # Add analysis job - runs every 5 minutes to analyze pending posts
+        self.scheduler.add_job(
+            self._run_analysis_job,
+            trigger=IntervalTrigger(minutes=5),
+            id="analyze_pending",
+            name="Analyze Pending Posts",
+            replace_existing=True,
+        )
+
         self.scheduler.start()
         self._is_started = True
         logger.info(
@@ -53,6 +63,33 @@ class SchedulerService:
             logger.info(f"Scheduled scrape completed: {posts_count} new posts")
         except Exception as e:
             logger.error(f"Scheduled scrape failed: {str(e)}")
+        finally:
+            db.close()
+
+    def _run_analysis_job(self):
+        """Analyze pending posts in batches."""
+        from app.services.llm_analyzer import analyzer
+        from app.models import Post
+        from app.models.post import PostStatus
+
+        db = SessionLocal()
+        try:
+            pending = db.query(Post).filter(
+                Post.status == PostStatus.PENDING.value
+            ).order_by(Post.created_utc.desc()).limit(10).all()
+
+            if not pending:
+                return
+
+            logger.info(f"Analyzing {len(pending)} pending posts")
+            for post in pending:
+                try:
+                    asyncio.run(analyzer.analyze_post(db, post))
+                except Exception as e:
+                    logger.error(f"Failed to analyze {post.id}: {e}")
+
+        except Exception as e:
+            logger.error(f"Analysis job failed: {str(e)}")
         finally:
             db.close()
 

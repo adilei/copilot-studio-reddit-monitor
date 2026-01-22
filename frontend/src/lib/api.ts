@@ -12,7 +12,7 @@ export interface Post {
   num_comments: number
   created_utc: string
   scraped_at: string
-  status: "pending" | "analyzed" | "handled" | "answered"
+  status: "pending" | "analyzed" | "handled"
   latest_sentiment: "positive" | "neutral" | "negative" | null
   latest_sentiment_score: number | null
   has_contributor_reply: boolean

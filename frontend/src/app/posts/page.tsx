@@ -84,7 +84,6 @@ export default function PostsPage() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="analyzed">Analyzed</SelectItem>
             <SelectItem value="handled">Handled</SelectItem>
-            <SelectItem value="answered">Answered</SelectItem>
           </SelectContent>
         </Select>
 

@@ -10,7 +10,6 @@ class PostStatus(str, enum.Enum):
     PENDING = "pending"
     ANALYZED = "analyzed"
     HANDLED = "handled"
-    ANSWERED = "answered"
 
 
 class Post(Base):

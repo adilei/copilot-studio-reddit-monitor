@@ -65,7 +65,7 @@ class PostDetail(PostResponse):
 
 
 class PostStatusUpdate(BaseModel):
-    status: Literal["pending", "analyzed", "handled", "answered"]
+    status: Literal["pending", "analyzed", "handled"]
 
 
 # Analysis schemas

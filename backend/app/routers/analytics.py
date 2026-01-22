@@ -50,7 +50,7 @@ def get_overview_stats(db: Session = Depends(get_db)):
     # Handled percentage
     handled_count = (
         db.query(func.count(Post.id))
-        .filter(Post.status.in_(["handled", "answered"]))
+        .filter(Post.status == "handled")
         .scalar()
         or 0
     )

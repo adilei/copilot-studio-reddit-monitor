@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { PostCard } from "@/components/PostCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +16,7 @@ import { getPosts, type Post } from "@/lib/api"
 import { Search, RefreshCw } from "lucide-react"
 
 export default function PostsPage() {
+  const searchParams = useSearchParams()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
@@ -22,6 +24,13 @@ export default function PostsPage() {
     sentiment: "",
     subreddit: "",
   })
+
+  // Initialize filters from URL params
+  useEffect(() => {
+    const status = searchParams.get("status") || ""
+    const sentiment = searchParams.get("sentiment") || ""
+    setFilters(f => ({ ...f, status, sentiment }))
+  }, [searchParams])
 
   useEffect(() => {
     loadPosts()

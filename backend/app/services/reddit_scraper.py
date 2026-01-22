@@ -46,6 +46,7 @@ class RedditScraper:
 
         try:
             self._scrape_new_posts(db)
+            self._check_all_contributor_replies(db)
             self.last_run = datetime.now(timezone.utc)
             db.commit()
 
@@ -132,6 +133,44 @@ class RedditScraper:
         self.posts_scraped += 1
         logger.info(f"Saved new post: {post.title[:50]}...")
         return True
+
+    def _check_all_contributor_replies(self, db: Session):
+        """Check recent posts for contributor replies."""
+        contributors = db.query(Contributor).filter(Contributor.active == True).all()
+        if not contributors:
+            logger.info("No active contributors to check")
+            return
+
+        contributor_handles = {c.reddit_handle.lower(): c for c in contributors}
+        logger.info(f"Checking replies from {len(contributors)} contributors")
+
+        # Check posts that aren't already handled
+        posts = db.query(Post).filter(
+            Post.status.in_([PostStatus.PENDING.value, PostStatus.ANALYZED.value])
+        ).order_by(Post.created_utc.desc()).limit(50).all()
+
+        for post in posts:
+            self._check_post_replies(db, post, contributor_handles)
+            time.sleep(0.5)  # Rate limiting
+
+    def _check_post_replies(self, db: Session, post: Post, contributor_handles: dict):
+        """Check a single post for contributor replies."""
+        try:
+            url = f"{self.base_url}/comments/{post.id}.json"
+
+            with httpx.Client(headers=self.headers, timeout=30) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                data = response.json()
+
+            if len(data) < 2:
+                return
+
+            comments = data[1].get("data", {}).get("children", [])
+            self._check_comments_recursive(db, post, comments, contributor_handles)
+
+        except Exception as e:
+            logger.error(f"Error checking replies for post {post.id}: {str(e)}")
 
     def check_contributor_replies(self, db: Session, post_id: str):
         """Check a specific post for replies from known contributors."""

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,6 +14,7 @@ import {
 import { RefreshCw, FileText, AlertTriangle, CheckCircle, Clock } from "lucide-react"
 
 export function Dashboard() {
+  const router = useRouter()
   const [stats, setStats] = useState<OverviewStats | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -85,7 +87,10 @@ export function Dashboard() {
 
       {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push("/posts")}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -98,7 +103,10 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push("/posts?sentiment=negative")}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Negative Sentiment</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -113,7 +121,10 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push("/posts?status=handled")}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Handled</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
@@ -128,7 +139,10 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push("/posts?status=pending")}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
             <Clock className="h-4 w-4 text-yellow-500" />

@@ -22,10 +22,15 @@ export function Dashboard() {
 
   useEffect(() => {
     loadData()
-    // Poll scrape status every 5 seconds
-    const interval = setInterval(loadScrapeStatus, 5000)
-    return () => clearInterval(interval)
   }, [])
+
+  // Auto-refresh while scraping is running
+  useEffect(() => {
+    if (!scrapeStatus?.is_running) return
+
+    const interval = setInterval(loadData, 3000)
+    return () => clearInterval(interval)
+  }, [scrapeStatus?.is_running])
 
   async function loadData() {
     try {
@@ -76,19 +81,13 @@ export function Dashboard() {
             Monitor Copilot Studio discussions on Reddit
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadData}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button
-            onClick={handleScrape}
-            disabled={scraping || scrapeStatus?.is_running}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${scrapeStatus?.is_running ? "animate-spin" : ""}`} />
-            {scrapeStatus?.is_running ? "Scraping..." : "Scrape Now"}
-          </Button>
-        </div>
+        <Button
+          onClick={handleScrape}
+          disabled={scraping || scrapeStatus?.is_running}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${scrapeStatus?.is_running ? "animate-spin" : ""}`} />
+          {scrapeStatus?.is_running ? "Scraping..." : "Scrape Now"}
+        </Button>
       </div>
 
       {/* Stats cards */}

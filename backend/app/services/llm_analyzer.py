@@ -68,7 +68,9 @@ class LLMAnalyzer:
             )
 
             db.add(analysis)
-            post.status = PostStatus.ANALYZED.value
+            # Don't downgrade from "handled" to "analyzed"
+            if post.status != PostStatus.HANDLED.value:
+                post.status = PostStatus.ANALYZED.value
             db.commit()
             db.refresh(analysis)
 

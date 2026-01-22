@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 from datetime import datetime, timezone
 from typing import Literal
 import logging
@@ -47,6 +48,11 @@ class RedditScraper:
         try:
             self._scrape_new_posts(db)
             self._check_all_contributor_replies(db)
+            db.commit()
+
+            # Analyze new posts
+            self._analyze_pending_posts(db)
+
             self.last_run = datetime.now(timezone.utc)
             db.commit()
 
@@ -152,6 +158,28 @@ class RedditScraper:
         for post in posts:
             self._check_post_replies(db, post, contributor_handles)
             time.sleep(0.5)  # Rate limiting
+
+    def _analyze_pending_posts(self, db: Session):
+        """Analyze posts that haven't been analyzed yet."""
+        from app.services.llm_analyzer import analyzer
+
+        pending_posts = db.query(Post).filter(
+            Post.status == PostStatus.PENDING.value
+        ).order_by(Post.created_utc.desc()).limit(20).all()
+
+        if not pending_posts:
+            logger.info("No pending posts to analyze")
+            return
+
+        logger.info(f"Analyzing {len(pending_posts)} pending posts")
+
+        for post in pending_posts:
+            try:
+                # Run async analyzer in sync context
+                asyncio.run(analyzer.analyze_post(db, post))
+                logger.info(f"Analyzed post: {post.id}")
+            except Exception as e:
+                logger.error(f"Failed to analyze post {post.id}: {str(e)}")
 
     def _check_post_replies(self, db: Session, post: Post, contributor_handles: dict):
         """Check a single post for contributor replies."""

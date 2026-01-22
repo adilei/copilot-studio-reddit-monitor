@@ -15,21 +15,23 @@ ANALYSIS_PROMPT = """Analyze this Reddit post about Microsoft Copilot Studio:
 Title: {title}
 Content: {body}
 
-Provide a JSON response with the following structure:
+Classify the sentiment based on the user's EMOTIONAL TONE toward Copilot Studio as a product:
+
+- NEGATIVE: User expresses frustration, anger, disappointment, or complains about bugs/broken features. They feel the product let them down.
+- NEUTRAL: User asks a question, seeks help, or discusses features without strong emotion. Struggling to understand something is NOT negative if they're not blaming the product.
+- POSITIVE: User praises the product, shares success, or expresses satisfaction.
+
+A polite help request or "how do I do X?" question is NEUTRAL, not negative.
+
+Provide a JSON response:
 {{
-    "summary": "A 2-3 sentence summary of the question/issue",
+    "summary": "A 2-3 sentence summary",
     "sentiment": "positive" | "neutral" | "negative",
-    "sentiment_score": <number from -1.0 (very negative) to 1.0 (very positive)>,
-    "key_issues": ["list", "of", "issues"] or null if none
+    "sentiment_score": <-1.0 to 1.0>,
+    "key_issues": ["list", "of", "issues"] or null
 }}
 
-Focus on identifying:
-- User frustrations or complaints about Copilot Studio
-- Bug reports or technical issues
-- Feature requests or limitations mentioned
-- Praise or positive experiences
-
-Respond ONLY with the JSON object, no additional text."""
+Respond ONLY with the JSON object."""
 
 
 class LLMAnalyzer:

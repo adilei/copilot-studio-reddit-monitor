@@ -25,7 +25,7 @@ export function PostCard({ post }: PostCardProps) {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <Link href={`/posts/${post.id}`}>
+            <Link href={`/posts/detail?id=${post.id}`}>
               <CardTitle className="text-base font-medium hover:text-primary cursor-pointer line-clamp-2">
                 {post.title}
               </CardTitle>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { Suspense, useEffect, useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,19 +31,34 @@ import {
 } from "lucide-react"
 
 export default function PostDetailPage() {
-  const params = useParams()
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading post...</div>}>
+      <PostDetailContent />
+    </Suspense>
+  )
+}
+
+function PostDetailContent() {
+  const searchParams = useSearchParams()
   const router = useRouter()
+  const id = searchParams.get("id")
+
   const [post, setPost] = useState<PostDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
 
   useEffect(() => {
-    loadPost()
-  }, [params.id])
+    if (id) {
+      loadPost()
+    } else {
+      setLoading(false)
+    }
+  }, [id])
 
   async function loadPost() {
+    if (!id) return
     try {
-      const data = await getPost(params.id as string)
+      const data = await getPost(id)
       setPost(data)
     } catch (error) {
       console.error("Failed to load post:", error)

@@ -198,3 +198,53 @@ def get_status_breakdown(db: Session = Depends(get_db)):
     )
 
     return [{"status": r.status, "count": r.count} for r in results]
+
+
+@router.get("/warnings")
+def get_unhandled_warnings(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """Get unhandled posts with warning flag (is_warning=True and status != 'handled')."""
+    # Subquery to get the latest analysis ID for each post
+    latest_analysis = (
+        db.query(
+            Analysis.post_id,
+            func.max(Analysis.id).label("max_id")
+        )
+        .group_by(Analysis.post_id)
+        .subquery()
+    )
+
+    # Get posts where latest analysis has is_warning=True and post is not handled
+    warning_post_ids = (
+        db.query(Analysis.post_id)
+        .join(latest_analysis, Analysis.id == latest_analysis.c.max_id)
+        .filter(Analysis.is_warning == True)
+        .subquery()
+    )
+
+    posts = (
+        db.query(Post)
+        .filter(Post.id.in_(warning_post_ids))
+        .filter(Post.status != "handled")
+        .order_by(Post.created_utc.desc())
+        .limit(limit)
+        .all()
+    )
+
+    # Build response with summary info for the tile
+    result = []
+    for post in posts:
+        latest = post.latest_analysis
+        result.append({
+            "id": post.id,
+            "title": post.title,
+            "author": post.author,
+            "created_utc": post.created_utc,
+            "status": post.status,
+            "sentiment": latest.sentiment if latest else None,
+            "summary": latest.summary if latest else None,
+        })
+
+    return result

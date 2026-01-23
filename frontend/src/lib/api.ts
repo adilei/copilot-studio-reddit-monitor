@@ -205,3 +205,19 @@ export async function triggerScrape(params?: {
 export async function getScrapeStatus(): Promise<ScrapeStatus> {
   return fetchApi<ScrapeStatus>("/api/scrape/status")
 }
+
+// Warnings
+export interface WarningPost {
+  id: string
+  title: string
+  author: string
+  created_utc: string
+  status: string
+  sentiment: "positive" | "neutral" | "negative" | null
+  summary: string | null
+}
+
+export async function getWarningPosts(limit?: number): Promise<WarningPost[]> {
+  const query = limit ? `?limit=${limit}` : ""
+  return fetchApi<WarningPost[]>(`/api/analytics/warnings${query}`)
+}

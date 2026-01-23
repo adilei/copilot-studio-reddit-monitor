@@ -8,15 +8,20 @@ import {
   getOverviewStats,
   getScrapeStatus,
   triggerScrape,
+  getWarningPosts,
   type OverviewStats,
   type ScrapeStatus,
+  type WarningPost,
 } from "@/lib/api"
-import { RefreshCw, FileText, AlertTriangle, CheckCircle, Clock } from "lucide-react"
+import { RefreshCw, FileText, AlertTriangle, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { formatRelativeTime } from "@/lib/utils"
+import Link from "next/link"
 
 export function Dashboard() {
   const router = useRouter()
   const [stats, setStats] = useState<OverviewStats | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus | null>(null)
+  const [warningPosts, setWarningPosts] = useState<WarningPost[]>([])
   const [loading, setLoading] = useState(true)
   const [scraping, setScraping] = useState(false)
 
@@ -34,12 +39,14 @@ export function Dashboard() {
 
   async function loadData() {
     try {
-      const [statsData, statusData] = await Promise.all([
+      const [statsData, statusData, warnings] = await Promise.all([
         getOverviewStats(),
         getScrapeStatus(),
+        getWarningPosts(5),
       ])
       setStats(statsData)
       setScrapeStatus(statusData)
+      setWarningPosts(warnings)
     } catch (error) {
       console.error("Failed to load dashboard data:", error)
     } finally {
@@ -122,11 +129,6 @@ export function Dashboard() {
             </div>
             <p className="text-xs text-muted-foreground">
               of analyzed posts
-              {(stats?.warning_count || 0) > 0 && (
-                <span className="text-orange-600 font-medium ml-1">
-                  · {stats?.warning_count} ⚠ warnings
-                </span>
-              )}
             </p>
           </CardContent>
         </Card>
@@ -165,6 +167,43 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Boiling Posts tile */}
+      {warningPosts.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+                Boiling Posts ({warningPosts.length})
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {warningPosts.map((post) => (
+                <Link
+                  key={post.id}
+                  href={`/posts/${post.id}`}
+                  className="block p-2 rounded-md hover:bg-orange-100 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium line-clamp-1 flex-1">
+                      {post.title}
+                    </p>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatRelativeTime(post.created_utc)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    u/{post.author}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Scrape status */}
       {scrapeStatus && (

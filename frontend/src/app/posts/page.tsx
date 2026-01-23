@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { PostCard } from "@/components/PostCard"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,8 @@ export default function PostsPage() {
     sentiment: "",
     subreddit: "",
   })
+  const initialLoadDone = useRef(false)
+  const prevSubreddit = useRef("")
 
   // Load posts with given filters
   const loadPosts = useCallback(async (currentFilters: typeof filters) => {
@@ -47,15 +49,19 @@ export default function PostsPage() {
   useEffect(() => {
     const status = searchParams.get("status") || ""
     const sentiment = searchParams.get("sentiment") || ""
-    const newFilters = { ...filters, status, sentiment }
+    const newFilters = { status, sentiment, subreddit: filters.subreddit }
     setFilters(newFilters)
     loadPosts(newFilters)
+    initialLoadDone.current = true
   }, [searchParams])
 
-  // Reload when subreddit filter changes (manual input)
+  // Reload when subreddit filter changes (manual input) - skip initial mount
   useEffect(() => {
+    if (!initialLoadDone.current) return
+    if (prevSubreddit.current === filters.subreddit) return
+    prevSubreddit.current = filters.subreddit
     loadPosts(filters)
-  }, [filters.subreddit])
+  }, [filters.subreddit, filters, loadPosts])
 
   // Handle filter dropdown changes
   function handleFilterChange(key: "status" | "sentiment", value: string) {

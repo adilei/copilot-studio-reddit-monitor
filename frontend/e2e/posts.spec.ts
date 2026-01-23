@@ -98,6 +98,50 @@ test.describe('Posts Filtering', () => {
   });
 });
 
+test.describe('Posts Filter Correctness', () => {
+  test('pending filter should only show pending posts or empty list', async ({ page }) => {
+    await page.goto('/posts?status=pending');
+    await page.waitForLoadState('networkidle');
+
+    // Wait a moment for posts to load
+    await page.waitForTimeout(500);
+
+    // Check if there are any posts displayed
+    const postCards = page.locator('a[href^="/posts/"]');
+    const postCount = await postCards.count();
+
+    if (postCount > 0) {
+      // If posts exist, they should all have "pending" status badge
+      const pendingBadges = page.locator('text=pending').filter({ hasText: /^pending$/ });
+      const analyzedBadges = page.getByText('analyzed', { exact: true });
+      const handledBadges = page.getByText('handled', { exact: true });
+
+      // Should not have analyzed or handled posts
+      expect(await analyzedBadges.count()).toBe(0);
+      expect(await handledBadges.count()).toBe(0);
+    } else {
+      // Empty list is valid for pending filter
+      const emptyMessage = page.getByText(/No posts found/i);
+      await expect(emptyMessage).toBeVisible();
+    }
+  });
+
+  test('analyzed filter should only show analyzed posts', async ({ page }) => {
+    await page.goto('/posts?status=analyzed');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(500);
+
+    const postCards = page.locator('a[href^="/posts/"]');
+    const postCount = await postCards.count();
+
+    if (postCount > 0) {
+      // All visible posts should have "analyzed" badge
+      const pendingBadges = page.getByText('pending', { exact: true });
+      expect(await pendingBadges.count()).toBe(0);
+    }
+  });
+});
+
 test.describe('Posts Navigation from Dashboard', () => {
   test('clicking Handled card should navigate to handled posts', async ({ page }) => {
     // Start at dashboard

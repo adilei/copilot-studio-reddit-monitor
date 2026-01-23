@@ -19,19 +19,19 @@ async function takeScreenshots() {
   await page.waitForTimeout(1000);
   await page.screenshot({ path: `${SCREENSHOT_DIR}/dashboard.png`, fullPage: true });
 
-  // Posts list
+  // Posts list (viewport only - not full page to avoid huge screenshots)
   console.log('2. Posts list');
   await page.goto(`${BASE_URL}/posts`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: `${SCREENSHOT_DIR}/posts-list.png`, fullPage: true });
+  await page.screenshot({ path: `${SCREENSHOT_DIR}/posts-list.png` });
 
-  // Posts with negative filter
+  // Posts with negative filter (viewport only)
   console.log('3. Posts filtered by negative sentiment');
   await page.goto(`${BASE_URL}/posts?sentiment=negative`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: `${SCREENSHOT_DIR}/posts-negative.png`, fullPage: true });
+  await page.screenshot({ path: `${SCREENSHOT_DIR}/posts-negative.png` });
 
   // Post detail (get first post ID)
   console.log('4. Post detail');

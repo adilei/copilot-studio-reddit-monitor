@@ -29,3 +29,8 @@ backend/deploy.zip
 
 # Claude
 .claude/settings.local.json
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { PostCard } from "@/components/PostCard"
 import { Button } from "@/components/ui/button"
@@ -25,24 +25,14 @@ export default function PostsPage() {
     subreddit: "",
   })
 
-  // Initialize filters from URL params
-  useEffect(() => {
-    const status = searchParams.get("status") || ""
-    const sentiment = searchParams.get("sentiment") || ""
-    setFilters(f => ({ ...f, status, sentiment }))
-  }, [searchParams])
-
-  useEffect(() => {
-    loadPosts()
-  }, [filters])
-
-  async function loadPosts() {
+  // Load posts with given filters
+  const loadPosts = useCallback(async (currentFilters: typeof filters) => {
     setLoading(true)
     try {
       const params: Record<string, string> = {}
-      if (filters.status) params.status = filters.status
-      if (filters.sentiment) params.sentiment = filters.sentiment
-      if (filters.subreddit) params.subreddit = filters.subreddit
+      if (currentFilters.status) params.status = currentFilters.status
+      if (currentFilters.sentiment) params.sentiment = currentFilters.sentiment
+      if (currentFilters.subreddit) params.subreddit = currentFilters.subreddit
 
       const data = await getPosts(params)
       setPosts(data)
@@ -51,6 +41,28 @@ export default function PostsPage() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  // Sync filters from URL params and load posts
+  useEffect(() => {
+    const status = searchParams.get("status") || ""
+    const sentiment = searchParams.get("sentiment") || ""
+    const newFilters = { ...filters, status, sentiment }
+    setFilters(newFilters)
+    loadPosts(newFilters)
+  }, [searchParams])
+
+  // Reload when subreddit filter changes (manual input)
+  useEffect(() => {
+    loadPosts(filters)
+  }, [filters.subreddit])
+
+  // Handle filter dropdown changes
+  function handleFilterChange(key: "status" | "sentiment", value: string) {
+    const newValue = value === "all" ? "" : value
+    const newFilters = { ...filters, [key]: newValue }
+    setFilters(newFilters)
+    loadPosts(newFilters)
   }
 
   return (
@@ -62,7 +74,7 @@ export default function PostsPage() {
             Browse and manage scraped Reddit posts
           </p>
         </div>
-        <Button onClick={loadPosts} variant="outline">
+        <Button onClick={() => loadPosts(filters)} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
@@ -71,10 +83,8 @@ export default function PostsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-4">
         <Select
-          value={filters.status}
-          onValueChange={(value) =>
-            setFilters((f) => ({ ...f, status: value === "all" ? "" : value }))
-          }
+          value={filters.status || "all"}
+          onValueChange={(value) => handleFilterChange("status", value)}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Status" />
@@ -88,10 +98,8 @@ export default function PostsPage() {
         </Select>
 
         <Select
-          value={filters.sentiment}
-          onValueChange={(value) =>
-            setFilters((f) => ({ ...f, sentiment: value === "all" ? "" : value }))
-          }
+          value={filters.sentiment || "all"}
+          onValueChange={(value) => handleFilterChange("sentiment", value)}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Sentiment" />
@@ -116,7 +124,11 @@ export default function PostsPage() {
         {(filters.status || filters.sentiment || filters.subreddit) && (
           <Button
             variant="ghost"
-            onClick={() => setFilters({ status: "", sentiment: "", subreddit: "" })}
+            onClick={() => {
+              const cleared = { status: "", sentiment: "", subreddit: "" }
+              setFilters(cleared)
+              loadPosts(cleared)
+            }}
           >
             Clear filters
           </Button>

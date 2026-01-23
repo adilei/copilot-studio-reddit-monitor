@@ -16,11 +16,11 @@ def get_overview_stats(db: Session = Depends(get_db)):
     # Total posts
     total_posts = db.query(func.count(Post.id)).scalar() or 0
 
-    # Posts today
-    today = datetime.utcnow().date()
-    posts_today = (
+    # Posts scraped in last 24 hours
+    last_24h = datetime.utcnow() - timedelta(hours=24)
+    posts_last_24h = (
         db.query(func.count(Post.id))
-        .filter(func.date(Post.scraped_at) == today)
+        .filter(Post.scraped_at >= last_24h)
         .scalar()
         or 0
     )
@@ -67,7 +67,7 @@ def get_overview_stats(db: Session = Depends(get_db)):
 
     return OverviewStats(
         total_posts=total_posts,
-        posts_today=posts_today,
+        posts_last_24h=posts_last_24h,
         negative_percentage=round(negative_percentage, 1),
         handled_percentage=round(handled_percentage, 1),
         pending_count=pending_count,

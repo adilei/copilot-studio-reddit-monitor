@@ -114,7 +114,7 @@ class ScrapeStatus(BaseModel):
 # Analytics schemas
 class OverviewStats(BaseModel):
     total_posts: int
-    posts_today: int
+    posts_last_24h: int
     negative_percentage: float
     handled_percentage: float
     pending_count: int

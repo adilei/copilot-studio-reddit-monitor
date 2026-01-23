@@ -103,7 +103,7 @@ export function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{stats?.total_posts || 0}</div>
             <p className="text-xs text-muted-foreground">
-              {stats?.posts_today || 0} scraped today
+              {stats?.posts_last_24h || 0} scraped in last 24h
             </p>
           </CardContent>
         </Card>

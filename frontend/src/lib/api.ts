@@ -61,7 +61,7 @@ export interface ScrapeStatus {
 
 export interface OverviewStats {
   total_posts: number
-  posts_today: number
+  posts_last_24h: number
   negative_percentage: number
   handled_percentage: number
   pending_count: number

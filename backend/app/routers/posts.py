@@ -23,7 +23,7 @@ def list_posts(
     limit: int = Query(50, ge=1, le=100),
     status: str | None = None,
     sentiment: Literal["positive", "neutral", "negative"] | None = None,
-    subreddit: str | None = None,
+    search: str | None = None,
     sort_by: Literal["created_utc", "scraped_at", "score"] = "created_utc",
     sort_order: Literal["asc", "desc"] = "desc",
     db: Session = Depends(get_db),
@@ -34,8 +34,11 @@ def list_posts(
     # Apply filters
     if status:
         query = query.filter(Post.status == status)
-    if subreddit:
-        query = query.filter(Post.subreddit == subreddit)
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Post.title.ilike(search_term)) | (Post.body.ilike(search_term))
+        )
 
     # Filter by sentiment - use latest analysis only
     if sentiment:

@@ -22,10 +22,10 @@ export default function PostsPage() {
   const [filters, setFilters] = useState({
     status: "",
     sentiment: "",
-    subreddit: "",
+    search: "",
   })
   const initialLoadDone = useRef(false)
-  const prevSubreddit = useRef("")
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null)
 
   // Load posts with given filters
   const loadPosts = useCallback(async (currentFilters: typeof filters) => {
@@ -34,7 +34,7 @@ export default function PostsPage() {
       const params: Record<string, string> = {}
       if (currentFilters.status) params.status = currentFilters.status
       if (currentFilters.sentiment) params.sentiment = currentFilters.sentiment
-      if (currentFilters.subreddit) params.subreddit = currentFilters.subreddit
+      if (currentFilters.search) params.search = currentFilters.search
 
       const data = await getPosts(params)
       setPosts(data)
@@ -49,19 +49,26 @@ export default function PostsPage() {
   useEffect(() => {
     const status = searchParams.get("status") || ""
     const sentiment = searchParams.get("sentiment") || ""
-    const newFilters = { status, sentiment, subreddit: filters.subreddit }
+    const newFilters = { status, sentiment, search: filters.search }
     setFilters(newFilters)
     loadPosts(newFilters)
     initialLoadDone.current = true
   }, [searchParams])
 
-  // Reload when subreddit filter changes (manual input) - skip initial mount
-  useEffect(() => {
-    if (!initialLoadDone.current) return
-    if (prevSubreddit.current === filters.subreddit) return
-    prevSubreddit.current = filters.subreddit
-    loadPosts(filters)
-  }, [filters.subreddit, filters, loadPosts])
+  // Debounced search - reload after user stops typing
+  function handleSearchChange(value: string) {
+    setFilters(f => ({ ...f, search: value }))
+
+    // Clear previous timeout
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current)
+    }
+
+    // Debounce: wait 300ms after user stops typing
+    searchTimeout.current = setTimeout(() => {
+      loadPosts({ ...filters, search: value })
+    }, 300)
+  }
 
   // Handle filter dropdown changes
   function handleFilterChange(key: "status" | "sentiment", value: string) {
@@ -119,19 +126,17 @@ export default function PostsPage() {
         </Select>
 
         <Input
-          placeholder="Filter by subreddit..."
-          value={filters.subreddit}
-          onChange={(e) =>
-            setFilters((f) => ({ ...f, subreddit: e.target.value }))
-          }
-          className="w-[200px]"
+          placeholder="Search posts..."
+          value={filters.search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="w-[250px]"
         />
 
-        {(filters.status || filters.sentiment || filters.subreddit) && (
+        {(filters.status || filters.sentiment || filters.search) && (
           <Button
             variant="ghost"
             onClick={() => {
-              const cleared = { status: "", sentiment: "", subreddit: "" }
+              const cleared = { status: "", sentiment: "", search: "" }
               setFilters(cleared)
               loadPosts(cleared)
             }}

@@ -136,7 +136,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.handled_percentage?.toFixed(1) || 0}%
+              {stats?.handled_count || 0} / {stats?.total_posts || 0}
             </div>
             <p className="text-xs text-muted-foreground">
               posts with MS response

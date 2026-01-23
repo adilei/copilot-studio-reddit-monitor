@@ -69,7 +69,7 @@ def get_overview_stats(db: Session = Depends(get_db)):
         total_posts=total_posts,
         posts_last_24h=posts_last_24h,
         negative_percentage=round(negative_percentage, 1),
-        handled_percentage=round(handled_percentage, 1),
+        handled_count=handled_count,
         pending_count=pending_count,
         top_subreddit=top_subreddit,
     )

@@ -116,7 +116,7 @@ class OverviewStats(BaseModel):
     total_posts: int
     posts_last_24h: int
     negative_percentage: float
-    handled_percentage: float
+    handled_count: int
     pending_count: int
     top_subreddit: str | None = None
 

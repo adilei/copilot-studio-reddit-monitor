@@ -63,7 +63,7 @@ export interface OverviewStats {
   total_posts: number
   posts_last_24h: number
   negative_percentage: number
-  handled_percentage: number
+  handled_count: number
   pending_count: number
   top_subreddit: string | null
 }
@@ -102,7 +102,7 @@ export async function getPosts(params?: {
   limit?: number
   status?: string
   sentiment?: string
-  subreddit?: string
+  search?: string
   sort_by?: string
   sort_order?: string
 }): Promise<Post[]> {

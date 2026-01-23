@@ -8,13 +8,13 @@ test.describe('Posts List', () => {
     await expect(page.getByText('Browse and manage scraped Reddit posts')).toBeVisible();
   });
 
-  test('should display filter dropdowns', async ({ page }) => {
+  test('should display filter dropdowns and search', async ({ page }) => {
     await page.goto('/posts');
 
     // Check filter dropdowns exist
     await expect(page.getByRole('combobox').first()).toBeVisible(); // Status
     await expect(page.getByRole('combobox').nth(1)).toBeVisible(); // Sentiment
-    await expect(page.getByPlaceholder('Filter by subreddit...')).toBeVisible();
+    await expect(page.getByPlaceholder('Search posts...')).toBeVisible();
   });
 
   test('should have refresh button', async ({ page }) => {

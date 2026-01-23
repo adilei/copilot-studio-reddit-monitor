@@ -77,7 +77,7 @@ Visualize sentiment trends and engagement metrics:
 ### Backend
 - **FastAPI** - Python web framework
 - **SQLAlchemy** - ORM with SQLite (local) / Azure SQL (production)
-- **Ollama** - Local LLM for sentiment analysis (llama3.2)
+- **LLM Support** - Ollama (local) or Azure OpenAI (production)
 - **APScheduler** - Background job scheduling
 
 ### Frontend
@@ -95,7 +95,9 @@ Visualize sentiment trends and engagement metrics:
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- Ollama with llama3.2 model
+- **LLM Provider** (one of the following):
+  - Ollama with llama3.2 model (for local development)
+  - Azure OpenAI with GPT-4o deployment (for production)
 
 ### Backend Setup
 
@@ -129,13 +131,23 @@ npm install
 npm run dev
 ```
 
-### Running Ollama
+### LLM Setup
 
+**Option 1: Ollama (Local Development)**
 ```bash
 # Pull the model
 ollama pull llama3.2
 
 # Ollama runs automatically on localhost:11434
+```
+
+**Option 2: Azure OpenAI (Production)**
+```env
+# Set in backend/.env
+LLM_PROVIDER=azure
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_KEY=your-api-key
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
 ```
 
 ### Access the App

@@ -158,9 +158,12 @@ APScheduler runs:
 - Analysis job: Every 5 minutes (analyzes pending posts)
 
 ## Adding Tests for New Features
-When adding a new feature, add corresponding E2E tests:
+When adding a new feature, add corresponding E2E tests **immediately**:
 1. Create test cases in the relevant spec file (or new file for new pages)
 2. Test the happy path and edge cases
-3. Run `npm test` to verify all tests pass before committing
+3. **For any UI feature with links/navigation, verify links work before committing** - click through to ensure routes resolve correctly
+4. Run `npm test` to verify all tests pass before committing
+
+**Important**: When adding clickable elements (links, buttons that navigate), always test that the destination route exists and renders correctly. Don't assume links work - verify them in the browser or with E2E tests.
 
 See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.

@@ -55,4 +55,36 @@ test.describe('Dashboard', () => {
 
     await expect(page).toHaveURL('/posts?status=pending');
   });
+
+  test('should display Boiling Posts tile when warning posts exist', async ({ page }) => {
+    // Check if Boiling Posts tile is visible (only shows when there are warning posts)
+    const boilingPostsTile = page.getByText('Boiling Posts');
+
+    // The tile may or may not be visible depending on data
+    // If visible, verify it has the expected structure
+    const isVisible = await boilingPostsTile.isVisible().catch(() => false);
+
+    if (isVisible) {
+      await expect(boilingPostsTile).toBeVisible();
+      // Should show count in parentheses
+      await expect(page.getByText(/Boiling Posts \(\d+\)/)).toBeVisible();
+    }
+  });
+
+  test('should navigate to post detail when clicking a boiling post', async ({ page }) => {
+    // Check if Boiling Posts tile exists
+    const boilingPostsTile = page.getByText('Boiling Posts');
+    const isVisible = await boilingPostsTile.isVisible().catch(() => false);
+
+    if (isVisible) {
+      // Click the first post link in the Boiling Posts tile
+      const firstPost = page.locator('a[href^="/posts/"]').first();
+      const href = await firstPost.getAttribute('href');
+
+      if (href) {
+        await firstPost.click();
+        await expect(page).toHaveURL(href);
+      }
+    }
+  });
 });

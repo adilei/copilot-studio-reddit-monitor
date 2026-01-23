@@ -97,7 +97,7 @@ Visualize sentiment trends and engagement metrics:
 - Node.js 18+
 - **LLM Provider** (one of the following):
   - Ollama with llama3.2 model (for local development)
-  - Azure OpenAI with GPT-4o deployment (for production)
+  - Azure OpenAI (for production) - any chat completion model
 
 ### Backend Setup
 
@@ -147,7 +147,7 @@ ollama pull llama3.2
 LLM_PROVIDER=azure
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 AZURE_OPENAI_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_DEPLOYMENT=your-deployment-name  # e.g., gpt-4o, gpt-4o-mini, gpt-4
 ```
 
 ### Access the App
@@ -253,7 +253,7 @@ npx tsx scripts/take-screenshots.ts
 | `DATABASE_URL` | Database connection string | `sqlite:///./data/reddit_monitor.db` |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint | - |
 | `AZURE_OPENAI_KEY` | Azure OpenAI API key | - |
-| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment | `gpt-4o` |
+| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment name | - |
 
 ## Azure Deployment
 

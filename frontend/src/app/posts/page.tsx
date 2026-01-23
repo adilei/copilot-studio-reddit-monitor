@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { PostCard } from "@/components/PostCard"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,14 @@ import { getPosts, type Post } from "@/lib/api"
 import { Search, RefreshCw } from "lucide-react"
 
 export default function PostsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <PostsContent />
+    </Suspense>
+  )
+}
+
+function PostsContent() {
   const searchParams = useSearchParams()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)

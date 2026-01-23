@@ -5,8 +5,13 @@ import os
 
 settings = get_settings()
 
-# Ensure data directory exists
-os.makedirs("data", exist_ok=True)
+# Ensure database directory exists (handles both relative and absolute paths)
+db_url = settings.database_url
+if db_url.startswith("sqlite:///"):
+    db_path = db_url.replace("sqlite:///", "")
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
 engine = create_engine(
     settings.database_url,

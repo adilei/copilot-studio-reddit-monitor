@@ -184,7 +184,7 @@ export function Dashboard() {
               {warningPosts.map((post) => (
                 <Link
                   key={post.id}
-                  href={`/posts/${post.id}`}
+                  href={`/posts/detail?id=${post.id}`}
                   className="block p-2 rounded-md hover:bg-orange-100 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">

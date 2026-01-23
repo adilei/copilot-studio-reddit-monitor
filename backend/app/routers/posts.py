@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from typing import Literal
 
 from app.database import get_db
@@ -37,15 +37,25 @@ def list_posts(
     if subreddit:
         query = query.filter(Post.subreddit == subreddit)
 
-    # Filter by sentiment requires joining with analyses
+    # Filter by sentiment - use latest analysis only
     if sentiment:
-        subquery = (
-            db.query(Analysis.post_id)
-            .filter(Analysis.sentiment == sentiment)
-            .distinct()
+        # Subquery to get the latest analysis ID for each post
+        latest_analysis = (
+            db.query(
+                Analysis.post_id,
+                func.max(Analysis.id).label("max_id")
+            )
+            .group_by(Analysis.post_id)
             .subquery()
         )
-        query = query.filter(Post.id.in_(subquery))
+        # Get post IDs where latest analysis matches the sentiment
+        matching_posts = (
+            db.query(Analysis.post_id)
+            .join(latest_analysis, Analysis.id == latest_analysis.c.max_id)
+            .filter(Analysis.sentiment == sentiment)
+            .subquery()
+        )
+        query = query.filter(Post.id.in_(matching_posts))
 
     # Apply sorting
     sort_column = getattr(Post, sort_by)

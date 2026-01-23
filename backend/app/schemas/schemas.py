@@ -25,6 +25,7 @@ class AnalysisResponse(BaseModel):
     post_id: str
     summary: str
     sentiment: Literal["positive", "neutral", "negative"]
+    is_warning: bool = False
     sentiment_score: float | None = None
     key_issues: list[str] | None = None
     analyzed_at: datetime
@@ -50,6 +51,7 @@ class PostResponse(PostBase):
     status: str
     latest_sentiment: str | None = None
     latest_sentiment_score: float | None = None
+    is_warning: bool = False
     has_contributor_reply: bool = False
 
     class Config:
@@ -72,6 +74,7 @@ class PostStatusUpdate(BaseModel):
 class AnalysisBase(BaseModel):
     summary: str
     sentiment: Literal["positive", "neutral", "negative"]
+    is_warning: bool = False
     sentiment_score: float | None = None
     key_issues: list[str] | None = None
 
@@ -118,6 +121,7 @@ class OverviewStats(BaseModel):
     negative_percentage: float
     handled_count: int
     pending_count: int
+    warning_count: int = 0
     top_subreddit: str | None = None
 
 

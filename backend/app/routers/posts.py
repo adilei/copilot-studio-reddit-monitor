@@ -87,14 +87,19 @@ def list_posts(
             "status": post.status,
             "latest_sentiment": None,
             "latest_sentiment_score": None,
+            "is_warning": False,
             "has_contributor_reply": len(post.contributor_replies) > 0,
         }
 
         if post.latest_analysis:
             post_dict["latest_sentiment"] = post.latest_analysis.sentiment
             post_dict["latest_sentiment_score"] = post.latest_analysis.sentiment_score
+            post_dict["is_warning"] = post.latest_analysis.is_warning or False
 
         result.append(PostResponse(**post_dict))
+
+    # Sort warnings to the top
+    result.sort(key=lambda p: (not p.is_warning,))
 
     return result
 
@@ -133,6 +138,7 @@ def get_post(post_id: str, db: Session = Depends(get_db)):
         status=post.status,
         latest_sentiment=post.latest_analysis.sentiment if post.latest_analysis else None,
         latest_sentiment_score=post.latest_analysis.sentiment_score if post.latest_analysis else None,
+        is_warning=post.latest_analysis.is_warning if post.latest_analysis else False,
         has_contributor_reply=len(post.contributor_replies) > 0,
         analyses=[AnalysisResponse.model_validate(a) for a in post.analyses],
         contributor_replies=replies,
@@ -168,6 +174,7 @@ def update_post_status(
         status=post.status,
         latest_sentiment=post.latest_analysis.sentiment if post.latest_analysis else None,
         latest_sentiment_score=post.latest_analysis.sentiment_score if post.latest_analysis else None,
+        is_warning=post.latest_analysis.is_warning if post.latest_analysis else False,
         has_contributor_reply=len(post.contributor_replies) > 0,
     )
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Integer, Float, DateTime, ForeignKey, JSON, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -14,6 +14,7 @@ class Analysis(Base):
     sentiment = Column(String, nullable=False)  # positive, neutral, negative
     sentiment_score = Column(Float)  # -1.0 to 1.0
     key_issues = Column(JSON)  # Array of identified issues
+    is_warning = Column(Boolean, default=False)  # Escalation flag for hostile/quitting users
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     model_used = Column(String)  # ollama/llama3 or azure/gpt-4
 

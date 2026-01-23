@@ -42,6 +42,7 @@ export function PostCard({ post }: PostCardProps) {
             <SentimentBadge
               sentiment={post.latest_sentiment}
               score={post.latest_sentiment_score}
+              isWarning={post.is_warning}
             />
             <Badge className={statusColors[post.status]}>
               {post.status}

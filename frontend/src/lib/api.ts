@@ -14,6 +14,7 @@ export interface Post {
   scraped_at: string
   status: "pending" | "analyzed" | "handled"
   latest_sentiment: "positive" | "neutral" | "negative" | null
+  is_warning: boolean
   latest_sentiment_score: number | null
   has_contributor_reply: boolean
 }
@@ -28,6 +29,7 @@ export interface Analysis {
   post_id: string
   summary: string
   sentiment: "positive" | "neutral" | "negative"
+  is_warning: boolean
   sentiment_score: number | null
   key_issues: string[] | null
   analyzed_at: string
@@ -65,6 +67,7 @@ export interface OverviewStats {
   negative_percentage: number
   handled_count: number
   pending_count: number
+  warning_count: number
   top_subreddit: string | null
 }
 

@@ -21,13 +21,25 @@ Classify the sentiment based on the user's EMOTIONAL TONE toward Copilot Studio 
 - NEUTRAL: User asks a question, seeks help, or discusses features without strong emotion. Struggling to understand something is NOT negative if they're not blaming the product.
 - POSITIVE: User praises the product, shares success, or expresses satisfaction.
 
+Additionally, set is_warning=true if the user exhibits ANY of these escalation signals:
+- Being derogatory, hostile, or abusive toward the product/company
+- Questioning whether to continue using the product ("should I quit?", "time to give up?")
+- Expressing loss of faith/confidence in the product ("lost faith", "lost hope", "don't trust it")
+- Seeking alternatives or asking about switching to competitors
+- Saying they've "had enough" or are at their breaking point
+- Describing the situation as a "cry for help" or expressing desperation
+- Citing other frustrated users or community complaints as validation for their concerns
+- Deadline pressure combined with product reliability concerns
+
 A polite help request or "how do I do X?" question is NEUTRAL, not negative.
+Note: A post can be politely written but still warrant is_warning=true if the user is considering abandoning the product.
 
 Provide a JSON response:
 {{
     "summary": "A 2-3 sentence summary",
     "sentiment": "positive" | "neutral" | "negative",
     "sentiment_score": <-1.0 to 1.0>,
+    "is_warning": true | false,
     "key_issues": ["list", "of", "issues"] or null
 }}
 
@@ -62,6 +74,7 @@ class LLMAnalyzer:
                 summary=result["summary"],
                 sentiment=result["sentiment"],
                 sentiment_score=result.get("sentiment_score"),
+                is_warning=result.get("is_warning", False),
                 key_issues=result.get("key_issues"),
                 analyzed_at=datetime.utcnow(),
                 model_used=model_used,
@@ -168,6 +181,7 @@ class LLMAnalyzer:
                 "summary": data["summary"],
                 "sentiment": sentiment,
                 "sentiment_score": data.get("sentiment_score"),
+                "is_warning": data.get("is_warning", False),
                 "key_issues": data.get("key_issues"),
             }
 

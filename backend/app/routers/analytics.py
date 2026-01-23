@@ -65,12 +65,31 @@ def get_overview_stats(db: Session = Depends(get_db)):
     )
     top_subreddit = top_subreddit_result[0] if top_subreddit_result else None
 
+    # Warning count - posts where latest analysis has is_warning=True
+    # Get latest analysis for each post and count those with is_warning
+    latest_analysis = (
+        db.query(
+            Analysis.post_id,
+            func.max(Analysis.id).label("max_id")
+        )
+        .group_by(Analysis.post_id)
+        .subquery()
+    )
+    warning_count = (
+        db.query(func.count(func.distinct(Analysis.post_id)))
+        .join(latest_analysis, Analysis.id == latest_analysis.c.max_id)
+        .filter(Analysis.is_warning == True)
+        .scalar()
+        or 0
+    )
+
     return OverviewStats(
         total_posts=total_posts,
         posts_last_24h=posts_last_24h,
         negative_percentage=round(negative_percentage, 1),
         handled_count=handled_count,
         pending_count=pending_count,
+        warning_count=warning_count,
         top_subreddit=top_subreddit,
     )
 

@@ -72,6 +72,7 @@ export default function PostDetailPage() {
         status: "analyzed",
         latest_sentiment: analysis.sentiment,
         latest_sentiment_score: analysis.sentiment_score,
+        is_warning: analysis.is_warning,
         analyses: [analysis, ...post.analyses],
       })
     } catch (error) {
@@ -162,6 +163,7 @@ export default function PostDetailPage() {
                 sentiment={post.latest_sentiment}
                 score={post.latest_sentiment_score}
                 showScore
+                isWarning={post.is_warning}
               />
             </div>
             <Button onClick={handleAnalyze} disabled={analyzing} variant="outline">
@@ -186,6 +188,7 @@ export default function PostDetailPage() {
                     sentiment={analysis.sentiment}
                     score={analysis.sentiment_score}
                     showScore
+                    isWarning={analysis.is_warning}
                   />
                   <span className="text-xs text-muted-foreground">
                     {formatDate(analysis.analyzed_at)} · {analysis.model_used}

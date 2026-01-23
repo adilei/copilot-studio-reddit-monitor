@@ -122,6 +122,11 @@ export function Dashboard() {
             </div>
             <p className="text-xs text-muted-foreground">
               of analyzed posts
+              {(stats?.warning_count || 0) > 0 && (
+                <span className="text-orange-600 font-medium ml-1">
+                  · {stats?.warning_count} ⚠ warnings
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>

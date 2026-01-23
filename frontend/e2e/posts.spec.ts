@@ -53,6 +53,19 @@ test.describe('Posts Filtering', () => {
     await expect(page.getByRole('combobox').nth(1)).toContainText('Negative');
   });
 
+  test('sentiment dropdown should have correct options', async ({ page }) => {
+    await page.goto('/posts');
+
+    // Open sentiment dropdown
+    await page.getByRole('combobox').nth(1).click();
+
+    // Verify options exist (warning is NOT a sentiment option - it's a flag)
+    await expect(page.getByRole('option', { name: 'All Sentiment' })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Positive' })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Neutral' })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Negative' })).toBeVisible();
+  });
+
   test('should apply status filter from URL params on page load', async ({ page }) => {
     // Navigate directly to filtered URL
     await page.goto('/posts?status=handled');

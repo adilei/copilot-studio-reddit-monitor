@@ -11,6 +11,7 @@ export default defineConfig({
     // Try ports in order: 3000, 3001, 3002
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {

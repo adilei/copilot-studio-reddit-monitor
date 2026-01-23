@@ -1,110 +1,147 @@
 # Copilot Studio Reddit Monitor
 
-Monitor Reddit for Copilot Studio discussions, analyze sentiment using LLMs, and track Microsoft contributor engagement.
+A full-stack application to monitor Reddit discussions about Microsoft Copilot Studio, analyze sentiment using LLMs, and track Microsoft contributor engagement.
+
+![Dashboard](docs/screenshots/dashboard.png)
 
 ## Features
 
-- **Reddit Scraping**: Automatically scrape relevant subreddits for Copilot Studio discussions
-- **Sentiment Analysis**: Analyze posts using Ollama (local) or Azure OpenAI
-- **Contributor Tracking**: Track Microsoft team member responses
-- **Dashboard**: Real-time overview of posts, sentiment, and engagement
-- **Analytics**: Visualize sentiment trends and contributor activity
+### Dashboard Overview
+Real-time monitoring of Reddit activity with key metrics:
+- **Total Posts** - All scraped posts from r/CopilotStudio
+- **Negative Sentiment** - Percentage of posts with negative sentiment, plus warning count for escalation-worthy posts
+- **Handled** - Posts that have received a Microsoft contributor response
+- **Pending** - Posts awaiting LLM analysis
+- **Scraper Status** - Live scraping status and last run time
+
+### Posts Management
+Browse, filter, and manage all scraped Reddit posts:
+
+![Posts List](docs/screenshots/posts-list.png)
+
+- Filter by **status** (Pending, Analyzed, Handled)
+- Filter by **sentiment** (Positive, Neutral, Negative)
+- **Search** posts by title or content
+- Posts with **warning flags** automatically appear at the top
+- View sentiment badges, status, Reddit score, and comment count
+
+### Warning Detection
+The LLM analyzer automatically detects escalation-worthy posts that need immediate attention:
+
+![Negative Posts with Warnings](docs/screenshots/posts-negative.png)
+
+Warning triggers include:
+- Users expressing intent to quit or switch to competitors
+- Loss of faith/confidence in the product ("I've lost faith", "time to call it quits")
+- Hostile or derogatory language toward the product
+- Deadline pressure combined with reliability concerns
+- Users citing other frustrated community members as validation
+
+Warning posts display a **⚠ badge** and are always sorted to the top of the list.
+
+### Post Detail View
+Deep dive into individual posts with full analysis:
+
+![Post Detail](docs/screenshots/post-detail.png)
+
+- Complete post text from Reddit
+- Sentiment analysis with confidence score
+- Key issues identified by LLM
+- Status management (Pending → Analyzed → Handled)
+- Microsoft contributor response tracking
+- Re-analyze button for fresh LLM analysis
+- Direct link to original Reddit post
+
+### Contributors Management
+Track Microsoft employees who respond to Reddit posts:
+
+![Contributors](docs/screenshots/contributors.png)
+
+- Add/remove contributors by Reddit handle
+- Automatic detection when contributors reply to posts
+- Posts auto-marked as "Handled" when a contributor responds
+- Reply count tracking per contributor
+
+### Analytics Dashboard
+Visualize sentiment trends and engagement metrics:
+
+![Analytics](docs/screenshots/analytics.png)
+
+- **Sentiment Trends** - Line chart showing positive/neutral/negative over time (7-90 days)
+- **Subreddit Breakdown** - Post distribution by source
+- **Status Distribution** - Pending/Analyzed/Handled breakdown
+- **Contributor Leaderboard** - Most active responders
+
+## Tech Stack
+
+### Backend
+- **FastAPI** - Python web framework
+- **SQLAlchemy** - ORM with SQLite (local) / Azure SQL (production)
+- **Ollama** - Local LLM for sentiment analysis (llama3.2)
+- **APScheduler** - Background job scheduling
+
+### Frontend
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type-safe JavaScript
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - React component library
+- **Recharts** - Data visualization
+
+### Testing
+- **Playwright** - End-to-end testing with screenshot capture on failure
 
 ## Quick Start
 
 ### Prerequisites
-
 - Python 3.11+
-- Node.js 20+
-- Reddit API credentials ([create app](https://www.reddit.com/prefs/apps))
-- Ollama (optional, for local LLM analysis)
+- Node.js 18+
+- Ollama with llama3.2 model
 
-### Setup
-
-1. **Clone and configure**:
-   ```bash
-   cd ~/projects/copilot-studio-reddit-monitor
-
-   # Backend setup
-   cd backend
-   cp .env.example .env
-   # Edit .env with your Reddit API credentials
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   # Backend
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-   pip install -r requirements.txt
-
-   # Frontend
-   cd ../frontend
-   npm install
-   ```
-
-3. **Start the services**:
-   ```bash
-   # Terminal 1: Backend
-   cd backend
-   uvicorn app.main:app --reload
-
-   # Terminal 2: Frontend
-   cd frontend
-   npm run dev
-
-   # Terminal 3: Ollama (optional)
-   ollama run llama3.2
-   ```
-
-4. **Access the app**:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
-
-## Docker Setup
+### Backend Setup
 
 ```bash
-# Copy and configure environment
-cp backend/.env.example .env
+cd backend
 
-# Start all services
-docker-compose up -d
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
+
+# Run the server
+uvicorn app.main:app --reload
 ```
 
-## Configuration
+### Frontend Setup
 
-Environment variables (set in `backend/.env`):
+```bash
+cd frontend
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `REDDIT_CLIENT_ID` | Reddit app client ID | Required |
-| `REDDIT_CLIENT_SECRET` | Reddit app secret | Required |
-| `REDDIT_USER_AGENT` | User agent for Reddit API | `CopilotStudioMonitor/1.0` |
-| `LLM_PROVIDER` | LLM provider (`ollama` or `azure`) | `ollama` |
-| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Ollama model name | `llama3.2` |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint | - |
-| `AZURE_OPENAI_KEY` | Azure OpenAI API key | - |
-| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment name | `gpt-4o` |
-| `SCRAPE_INTERVAL_HOURS` | Auto-scrape interval | `1` |
-| `TARGET_SUBREDDITS` | Subreddits to monitor | `MicrosoftCopilot,PowerPlatform,mspowerplatform` |
+# Install dependencies
+npm install
 
-## API Endpoints
+# Run development server
+npm run dev
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/scrape` | Trigger manual scrape |
-| `GET` | `/api/scrape/status` | Get scraper status |
-| `GET` | `/api/posts` | List posts (filterable) |
-| `GET` | `/api/posts/{id}` | Get post details |
-| `PATCH` | `/api/posts/{id}/status` | Update post status |
-| `POST` | `/api/posts/{id}/analyze` | Analyze post sentiment |
-| `GET` | `/api/contributors` | List contributors |
-| `POST` | `/api/contributors` | Add contributor |
-| `GET` | `/api/analytics/overview` | Dashboard stats |
-| `GET` | `/api/analytics/sentiment` | Sentiment trends |
+### Running Ollama
+
+```bash
+# Pull the model
+ollama pull llama3.2
+
+# Ollama runs automatically on localhost:11434
+```
+
+### Access the App
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
 
 ## Project Structure
 
@@ -112,37 +149,119 @@ Environment variables (set in `backend/.env`):
 copilot-studio-reddit-monitor/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py           # FastAPI entry point
-│   │   ├── config.py         # Settings
-│   │   ├── database.py       # SQLite setup
-│   │   ├── models/           # SQLAlchemy models
-│   │   ├── schemas/          # Pydantic schemas
-│   │   ├── services/         # Business logic
-│   │   └── routers/          # API routes
+│   │   ├── main.py              # FastAPI app entry
+│   │   ├── config.py            # Settings & env vars
+│   │   ├── database.py          # SQLAlchemy setup
+│   │   ├── models/              # Database models
+│   │   ├── routers/             # API endpoints
+│   │   ├── schemas/             # Pydantic models
+│   │   └── services/
+│   │       ├── reddit_scraper.py  # Reddit scraping logic
+│   │       └── llm_analyzer.py    # Sentiment analysis
+│   ├── migrations/              # Database migrations
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── app/              # Next.js pages
-│   │   ├── components/       # React components
-│   │   └── lib/              # Utilities & API client
+│   │   ├── app/                 # Next.js pages
+│   │   ├── components/          # React components
+│   │   └── lib/                 # API client & utils
+│   ├── e2e/                     # Playwright tests
 │   └── package.json
-├── docker-compose.yml
-└── README.md
+└── docs/
+    └── screenshots/             # App screenshots
 ```
 
-## Usage
+## API Endpoints
 
-1. **Scrape Reddit**: Click "Scrape Now" on the dashboard or wait for auto-scrape
-2. **Analyze Posts**: Click "Analyze" on any post to get AI sentiment analysis
-3. **Add Contributors**: Add Microsoft team members' Reddit handles to track responses
-4. **Monitor Analytics**: View sentiment trends and engagement metrics
+### Posts
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/posts` | List posts (with filtering) |
+| `GET` | `/api/posts/{id}` | Get post details |
+| `PATCH` | `/api/posts/{id}/status` | Update post status |
+| `POST` | `/api/posts/{id}/analyze` | Trigger LLM analysis |
+
+### Scraper
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/scrape` | Trigger manual scrape |
+| `GET` | `/api/scrape/status` | Get scraper status |
+
+### Contributors
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/contributors` | List contributors |
+| `POST` | `/api/contributors` | Add contributor |
+| `DELETE` | `/api/contributors/{id}` | Remove contributor |
+
+### Analytics
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/analytics/overview` | Dashboard stats |
+| `GET` | `/api/analytics/sentiment` | Sentiment trends |
+| `GET` | `/api/analytics/subreddits` | Subreddit breakdown |
+| `GET` | `/api/analytics/status-breakdown` | Status counts |
+
+## Testing
+
+### Run E2E Tests
+
+```bash
+cd frontend
+
+# Run all tests
+npx playwright test
+
+# Run with UI
+npx playwright test --ui
+
+# Run specific test file
+npx playwright test e2e/posts.spec.ts
+```
+
+Screenshots are automatically captured on test failures.
+
+### Take Documentation Screenshots
+
+```bash
+cd frontend
+npx tsx scripts/take-screenshots.ts
+```
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDDIT_USER_AGENT` | User agent for Reddit API | `CopilotStudioMonitor/1.0` |
+| `LLM_PROVIDER` | LLM provider (`ollama` or `azure`) | `ollama` |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Ollama model name | `llama3.2` |
+| `DATABASE_URL` | Database connection string | `sqlite:///./data/reddit_monitor.db` |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint | - |
+| `AZURE_OPENAI_KEY` | Azure OpenAI API key | - |
+| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment | `gpt-4o` |
 
 ## Azure Deployment
 
 For production deployment to Azure:
 
-- **Backend**: Azure App Service or Container Apps
+- **Backend**: Azure App Service (Python) or Azure Container Apps
 - **Frontend**: Azure Static Web Apps
 - **Database**: Azure SQL Database
 - **LLM**: Azure OpenAI Service
 - **Scheduler**: Azure Functions with Timer trigger
+
+## Usage Workflow
+
+1. **Scrape Reddit** - Click "Scrape Now" on dashboard or wait for auto-scrape
+2. **Review Posts** - Browse posts list, use filters to find relevant discussions
+3. **Check Warnings** - Warning posts appear at top, indicating users who need attention
+4. **Analyze Posts** - Click "Analyze" to run LLM sentiment analysis
+5. **Track Contributors** - Add Microsoft team members' Reddit handles
+6. **Monitor Trends** - Use Analytics to track sentiment over time
+
+## License
+
+MIT

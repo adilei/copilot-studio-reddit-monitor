@@ -100,3 +100,36 @@ Tables:
 APScheduler runs:
 - Scrape job: Every hour
 - Analysis job: Every 5 minutes (analyzes pending posts)
+
+## Testing
+
+### E2E Tests (Playwright)
+```bash
+cd frontend
+
+# Run all tests (headless)
+npm test
+
+# Run with UI for debugging
+npm run test:ui
+
+# Run with browser visible
+npm run test:headed
+```
+
+**Prerequisites**: Backend must be running on localhost:8000, frontend on localhost:3000.
+
+### Test Files
+- `e2e/dashboard.spec.ts` - Dashboard loading, stats cards, navigation
+- `e2e/posts.spec.ts` - Post filtering, URL params, dropdown filters
+- `e2e/post-detail.spec.ts` - Post detail page, analysis display
+- `e2e/contributors.spec.ts` - Contributors CRUD, analytics page
+
+### Adding Tests for New Features
+**IMPORTANT**: When adding a new feature, add corresponding E2E tests:
+1. Create test cases in the relevant spec file (or new file for new pages)
+2. Test the happy path and edge cases
+3. Run `npm test` to verify all tests pass before committing
+
+### Manual Test Plan
+See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.

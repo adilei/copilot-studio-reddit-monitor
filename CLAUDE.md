@@ -1,12 +1,14 @@
-# Copilot Studio Reddit Monitor
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-A system that monitors Reddit posts about Microsoft Copilot Studio, analyzes sentiment using LLMs (Ollama), and tracks Microsoft contributor engagement.
+A system that monitors Reddit posts about Microsoft Copilot Studio, analyzes sentiment using LLMs (Ollama or Azure OpenAI), and tracks Microsoft contributor engagement.
 
 ## Tech Stack
 - **Backend**: Python FastAPI + SQLAlchemy (SQLite)
 - **Frontend**: Next.js 14 + React + TypeScript + shadcn/ui + Tailwind
-- **LLM**: Ollama (local, using llama3.2 model)
+- **LLM**: Ollama (local) or Azure OpenAI (production)
 - **Scheduler**: APScheduler for background jobs
 
 ## Running Locally
@@ -14,9 +16,16 @@ A system that monitors Reddit posts about Microsoft Copilot Studio, analyzes sen
 ### Backend
 ```bash
 cd backend
+
+# Windows
+.venv\Scripts\activate
+
+# Linux/Mac
 source .venv/bin/activate
+
 uvicorn app.main:app --reload
 # Runs on http://localhost:8000
+# API docs at http://localhost:8000/docs
 ```
 
 ### Frontend
@@ -26,11 +35,58 @@ npm run dev
 # Runs on http://localhost:3000 (or 3001/3002 if ports in use)
 ```
 
-### Ollama (required for sentiment analysis)
+### Ollama (required for local sentiment analysis)
 ```bash
 ollama serve
 # Make sure llama3.2 model is pulled: ollama pull llama3.2
 ```
+
+## Build and Lint
+
+```bash
+# Frontend build
+cd frontend && npm run build
+
+# Frontend lint
+cd frontend && npm run lint
+```
+
+## Testing
+
+### E2E Tests (Playwright)
+**Prerequisites**: Backend must be running on localhost:8000, frontend on localhost:3000.
+
+```bash
+cd frontend
+
+# Run all tests (headless)
+npm test
+
+# Run a single test file
+npx playwright test e2e/posts.spec.ts
+
+# Run a specific test by name
+npx playwright test -g "should filter posts by status"
+
+# Run with UI for debugging
+npm run test:ui
+
+# Run with browser visible
+npm run test:headed
+```
+
+### Backend Tests
+```bash
+cd backend
+pytest
+pytest tests/test_specific.py -v  # Run single file
+```
+
+### Frontend Test Files
+- `e2e/dashboard.spec.ts` - Dashboard loading, stats cards, navigation
+- `e2e/posts.spec.ts` - Post filtering, URL params, dropdown filters
+- `e2e/post-detail.spec.ts` - Post detail page, analysis display
+- `e2e/contributors.spec.ts` - Contributors CRUD, analytics page
 
 ## Key Architecture Decisions
 
@@ -51,13 +107,13 @@ ollama serve
 - `analyzed` → LLM has analyzed the post
 - `handled` → Microsoft contributor has replied (protected from downgrade)
 
-## Important Notes
+## Important Implementation Notes
 
 ### Filter Implementation
 The posts page filter must synchronize URL params before loading data. Using `useSearchParams` in useEffect with direct API calls to prevent race conditions.
 
 ### "Last 24 Hours" vs "Today"
-Changed from date-based ("today") to duration-based ("last 24 hours") because users may be in different timezones than UTC timestamps.
+Uses duration-based ("last 24 hours") instead of date-based ("today") because users may be in different timezones than UTC timestamps.
 
 ### Sentiment Filter Bug Fix
 When filtering by sentiment, must use latest analysis only (posts can have multiple analyses). Implementation uses subquery with `func.max(Analysis.id)`.
@@ -101,35 +157,10 @@ APScheduler runs:
 - Scrape job: Every hour
 - Analysis job: Every 5 minutes (analyzes pending posts)
 
-## Testing
-
-### E2E Tests (Playwright)
-```bash
-cd frontend
-
-# Run all tests (headless)
-npm test
-
-# Run with UI for debugging
-npm run test:ui
-
-# Run with browser visible
-npm run test:headed
-```
-
-**Prerequisites**: Backend must be running on localhost:8000, frontend on localhost:3000.
-
-### Test Files
-- `e2e/dashboard.spec.ts` - Dashboard loading, stats cards, navigation
-- `e2e/posts.spec.ts` - Post filtering, URL params, dropdown filters
-- `e2e/post-detail.spec.ts` - Post detail page, analysis display
-- `e2e/contributors.spec.ts` - Contributors CRUD, analytics page
-
-### Adding Tests for New Features
-**IMPORTANT**: When adding a new feature, add corresponding E2E tests:
+## Adding Tests for New Features
+When adding a new feature, add corresponding E2E tests:
 1. Create test cases in the relevant spec file (or new file for new pages)
 2. Test the happy path and edge cases
 3. Run `npm test` to verify all tests pass before committing
 
-### Manual Test Plan
 See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.

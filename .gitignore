@@ -19,3 +19,13 @@ data/
 
 # OS
 .DS_Store
+
+# Next Build
+frontend/.next/
+frontend/out/
+
+# Backend build
+backend/deploy.zip
+
+# Claude
+.claude/settings.local.json

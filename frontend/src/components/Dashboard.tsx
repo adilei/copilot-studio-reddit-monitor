@@ -160,9 +160,11 @@ export function Dashboard() {
             <UserCheck className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.in_progress_count || 0}</div>
+            <div className="text-2xl font-bold">
+              {stats?.in_progress_count || 0} / {(stats?.total_posts || 0) - (stats?.has_reply_count || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              checked out, awaiting response
+              checked out of needing response
             </p>
           </CardContent>
         </Card>

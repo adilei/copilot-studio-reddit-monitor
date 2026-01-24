@@ -72,6 +72,7 @@ export interface OverviewStats {
   not_analyzed_count: number
   has_reply_count: number
   warning_count: number
+  in_progress_count: number
   top_subreddit: string | null
 }
 

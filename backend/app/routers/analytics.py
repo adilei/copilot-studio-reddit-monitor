@@ -88,6 +88,15 @@ def get_overview_stats(db: Session = Depends(get_db)):
         or 0
     )
 
+    # In progress count - posts that are checked out but don't have a reply yet
+    in_progress_count = (
+        db.query(func.count(Post.id))
+        .filter(Post.checked_out_by.isnot(None))
+        .filter(~Post.id.in_(posts_with_replies))
+        .scalar()
+        or 0
+    )
+
     return OverviewStats(
         total_posts=total_posts,
         posts_last_24h=posts_last_24h,
@@ -96,6 +105,7 @@ def get_overview_stats(db: Session = Depends(get_db)):
         not_analyzed_count=not_analyzed_count,
         has_reply_count=has_reply_count,
         warning_count=warning_count,
+        in_progress_count=in_progress_count,
         top_subreddit=top_subreddit,
     )
 

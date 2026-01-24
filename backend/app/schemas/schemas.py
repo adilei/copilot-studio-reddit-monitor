@@ -130,6 +130,7 @@ class OverviewStats(BaseModel):
     not_analyzed_count: int
     has_reply_count: int = 0
     warning_count: int = 0
+    in_progress_count: int = 0
     top_subreddit: str | None = None
 
 

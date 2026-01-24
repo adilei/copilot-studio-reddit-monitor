@@ -1,29 +1,44 @@
 # Copilot Studio Reddit Monitor
 
+**Version 1.1.0**
+
 A full-stack application to monitor Reddit discussions about Microsoft Copilot Studio, analyze sentiment using LLMs, and track Microsoft contributor engagement.
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard](docs/screenshots/01-dashboard.png)
 
 ## Features
 
 ### Dashboard Overview
 Real-time monitoring of Reddit activity with key metrics:
 - **Total Posts** - All scraped posts from r/CopilotStudio
-- **Negative Sentiment** - Percentage of posts with negative sentiment, plus warning count for escalation-worthy posts
-- **Handled** - Posts that have received a Microsoft contributor response
-- **Pending** - Posts awaiting LLM analysis
-- **Scraper Status** - Live scraping status and last run time
+- **Negative Sentiment** - Percentage of posts with negative sentiment
+- **MS Responded** - Posts that have received a Microsoft contributor response
+- **Being Handled** - Posts checked out by contributors (awaiting response)
+- **Not Analyzed** - Posts awaiting LLM analysis
+- **Boiling Posts** - Warning posts needing immediate attention
+
+### Contributor Checkout System
+Contributors can claim posts they're working on to prevent duplicate effort:
+
+![Header Selector](docs/screenshots/03-header-selector-open.png)
+
+- Select your identity from the header dropdown (persists in localStorage)
+- **Checkout** posts you're responding to
+- See which posts are being handled by teammates
+- **Release** posts when done or passing to someone else
 
 ### Posts Management
 Browse, filter, and manage all scraped Reddit posts:
 
-![Posts List](docs/screenshots/posts-list.png)
+![Posts List](docs/screenshots/05-posts-list.png)
 
-- Filter by **status** (Pending, Analyzed, Handled)
+- Filter by **analysis status** (Analyzed / Not Analyzed)
 - Filter by **sentiment** (Positive, Neutral, Negative)
+- Filter by **MS Reply** (Has Reply / No Reply)
+- Filter by **checkout status** (My Checkouts / Available)
 - **Search** posts by title or content
 - Posts with **warning flags** automatically appear at the top
-- View sentiment badges, status, Reddit score, and comment count
+- View sentiment badges, checkout status, Reddit score, and comment count
 
 ### Warning Detection
 The LLM analyzer automatically detects escalation-worthy posts that need immediate attention:
@@ -42,15 +57,17 @@ Warning posts display a **⚠ badge** and are always sorted to the top of the li
 ### Post Detail View
 Deep dive into individual posts with full analysis:
 
-![Post Detail](docs/screenshots/post-detail.png)
+![Post Detail](docs/screenshots/07-post-detail.png)
 
 - Complete post text from Reddit
 - Sentiment analysis with confidence score
 - Key issues identified by LLM
-- Status management (Pending → Analyzed → Handled)
+- **Checkout/Release** buttons to claim posts
 - Microsoft contributor response tracking
 - Re-analyze button for fresh LLM analysis
 - Direct link to original Reddit post
+
+![Post Checked Out](docs/screenshots/08-post-checked-out.png)
 
 ### Contributors Management
 Track Microsoft employees who respond to Reddit posts:
@@ -190,8 +207,18 @@ copilot-studio-reddit-monitor/
 |--------|----------|-------------|
 | `GET` | `/api/posts` | List posts (with filtering) |
 | `GET` | `/api/posts/{id}` | Get post details |
-| `PATCH` | `/api/posts/{id}/status` | Update post status |
 | `POST` | `/api/posts/{id}/analyze` | Trigger LLM analysis |
+| `POST` | `/api/posts/{id}/checkout` | Checkout post for contributor |
+| `POST` | `/api/posts/{id}/release` | Release checkout on post |
+
+#### Post Filters
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| `analyzed` | `true`/`false` | Filter by analysis status |
+| `sentiment` | `positive`/`neutral`/`negative` | Filter by sentiment |
+| `has_reply` | `true`/`false` | Filter by MS response |
+| `checked_out_by` | contributor ID | Filter by checkout |
+| `available_only` | `true` | Only unchecked posts |
 
 ### Scraper
 | Method | Endpoint | Description |
@@ -273,6 +300,41 @@ For production deployment to Azure:
 4. **Analyze Posts** - Click "Analyze" to run LLM sentiment analysis
 5. **Track Contributors** - Add Microsoft team members' Reddit handles
 6. **Monitor Trends** - Use Analytics to track sentiment over time
+
+---
+
+## Version History
+
+### v1.1.0 (2026-01-24)
+
+**New Features:**
+- Contributor checkout system - claim posts you're working on
+- Header contributor selector with localStorage persistence
+- "Being Handled" dashboard tile showing checkout progress
+- Updated filters: analyzed, has_reply, checkout status
+
+**Breaking Changes:**
+- Removed `status` field from posts (replaced with orthogonal dimensions)
+- API filter params changed: `status` → `analyzed`, `has_reply`
+
+**Database Migrations Required:**
+```bash
+cd backend
+source venv/bin/activate
+python migrations/add_checkout_fields.py
+python migrations/drop_status_column.py
+```
+
+### v1.0.0 (2026-01-23)
+
+Initial release with:
+- Reddit scraping from r/CopilotStudio
+- LLM sentiment analysis (Ollama/Azure OpenAI)
+- Warning detection for escalation-worthy posts
+- Contributor tracking
+- Analytics dashboard
+
+---
 
 ## License
 

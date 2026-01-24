@@ -2,16 +2,15 @@
 
 import Link from "next/link"
 import { BarChart3, FileText, Users, Home } from "lucide-react"
-import { ContributorSelector } from "./ContributorSelector"
 
 export function Sidebar() {
   return (
-    <aside className="w-64 border-r bg-card flex flex-col">
+    <aside className="w-64 border-r bg-card">
       <div className="p-6">
         <h1 className="text-lg font-semibold">Reddit Monitor</h1>
         <p className="text-sm text-muted-foreground">Copilot Studio</p>
       </div>
-      <nav className="px-4 space-y-2 flex-1">
+      <nav className="px-4 space-y-2">
         <Link
           href="/"
           className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
@@ -41,9 +40,6 @@ export function Sidebar() {
           Analytics
         </Link>
       </nav>
-      <div className="border-t py-4">
-        <ContributorSelector />
-      </div>
     </aside>
   )
 }

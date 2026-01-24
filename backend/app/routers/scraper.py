@@ -5,8 +5,7 @@ import asyncio
 from app.database import get_db, SessionLocal
 from app.schemas import ScrapeRequest, ScrapeStatus
 from app.services.reddit_scraper import scraper
-from app.models import Post
-from app.models.post import PostStatus
+from app.models import Post, Analysis
 
 router = APIRouter(prefix="/api/scrape", tags=["scraper"])
 
@@ -75,13 +74,15 @@ def get_scrape_status():
 
 
 def run_analyze_all():
-    """Background task to analyze all pending posts."""
+    """Background task to analyze all posts without analysis."""
     from app.services.llm_analyzer import analyzer
 
     db = SessionLocal()
     try:
+        # Get posts without any analysis
+        posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
         pending = db.query(Post).filter(
-            Post.status == PostStatus.PENDING.value
+            ~Post.id.in_(posts_with_analyses)
         ).all()
 
         for post in pending:
@@ -95,6 +96,6 @@ def run_analyze_all():
 
 @router.post("/analyze-all")
 def trigger_analyze_all(background_tasks: BackgroundTasks):
-    """Analyze all pending posts."""
+    """Analyze all posts without analysis."""
     background_tasks.add_task(run_analyze_all)
-    return {"message": "Analysis started for all pending posts"}
+    return {"message": "Analysis started for all unanalyzed posts"}

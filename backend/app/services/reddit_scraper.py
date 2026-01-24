@@ -7,8 +7,7 @@ import time
 
 from sqlalchemy.orm import Session
 from app.config import get_settings
-from app.models import Post, Contributor, ContributorReply
-from app.models.post import PostStatus
+from app.models import Post, Contributor, ContributorReply, Analysis
 
 logger = logging.getLogger(__name__)
 
@@ -150,9 +149,10 @@ class RedditScraper:
         contributor_handles = {c.reddit_handle.lower(): c for c in contributors}
         logger.info(f"Checking replies from {len(contributors)} contributors")
 
-        # Check posts that aren't already handled
+        # Check recent posts without contributor replies
+        posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
         posts = db.query(Post).filter(
-            Post.status.in_([PostStatus.PENDING.value, PostStatus.ANALYZED.value])
+            ~Post.id.in_(posts_with_replies)
         ).order_by(Post.created_utc.desc()).limit(50).all()
 
         for post in posts:
@@ -163,8 +163,10 @@ class RedditScraper:
         """Analyze posts that haven't been analyzed yet."""
         from app.services.llm_analyzer import analyzer
 
+        # Get posts without any analysis
+        posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
         pending_posts = db.query(Post).filter(
-            Post.status == PostStatus.PENDING.value
+            ~Post.id.in_(posts_with_analyses)
         ).order_by(Post.created_utc.desc()).limit(20).all()
 
         if not pending_posts:
@@ -257,7 +259,6 @@ class RedditScraper:
                         ),
                     )
                     db.add(reply)
-                    post.status = PostStatus.HANDLED.value
                     logger.info(f"Found reply from {contributor.name} on post {post.id}")
 
             # Check nested replies

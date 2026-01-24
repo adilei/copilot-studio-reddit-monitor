@@ -67,21 +67,22 @@ class SchedulerService:
             db.close()
 
     def _run_analysis_job(self):
-        """Analyze pending posts in batches."""
+        """Analyze posts without analyses in batches."""
         from app.services.llm_analyzer import analyzer
-        from app.models import Post
-        from app.models.post import PostStatus
+        from app.models import Post, Analysis
 
         db = SessionLocal()
         try:
+            # Get posts without any analysis
+            posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
             pending = db.query(Post).filter(
-                Post.status == PostStatus.PENDING.value
+                ~Post.id.in_(posts_with_analyses)
             ).order_by(Post.created_utc.desc()).limit(10).all()
 
             if not pending:
                 return
 
-            logger.info(f"Analyzing {len(pending)} pending posts")
+            logger.info(f"Analyzing {len(pending)} posts without analysis")
             for post in pending:
                 try:
                     asyncio.run(analyzer.analyze_post(db, post))

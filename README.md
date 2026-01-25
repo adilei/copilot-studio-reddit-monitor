@@ -307,32 +307,44 @@ For production deployment to Azure:
 
 ### v1.1.0 (2026-01-24)
 
-**New Features:**
-- Contributor checkout system - claim posts you're working on
-- Header contributor selector with localStorage persistence
-- "Being Handled" dashboard tile showing checkout progress
-- Updated filters: analyzed, has_reply, checkout status
+#### What's New
+- **Contributor checkout system** - Claim posts you're working on to prevent duplicate effort
+- **Header contributor selector** - Select your identity from top-right dropdown (persists in localStorage)
+- **"Being Handled" dashboard tile** - Shows X/Y posts checked out vs needing response
+- **Updated filters** - Filter by analyzed, has_reply, checkout status
 
-**Breaking Changes:**
-- Removed `status` field from posts (replaced with orthogonal dimensions)
+#### Breaking Changes
+- Removed `status` field from posts (replaced with orthogonal dimensions: `is_analyzed`, `checked_out_by`, `has_contributor_reply`)
 - API filter params changed: `status` → `analyzed`, `has_reply`
 
-**Database Migrations Required:**
+#### Upgrade Instructions
+
+**If upgrading from v1.0.0**, run these database migrations:
+
 ```bash
 cd backend
-source venv/bin/activate
+source venv/bin/activate  # or: venv\Scripts\activate on Windows
+
+# Run migrations in order
 python migrations/add_checkout_fields.py
 python migrations/drop_status_column.py
 ```
 
+⚠️ **Important**: Run migrations before starting the application. The app will fail if the schema doesn't match.
+
+---
+
 ### v1.0.0 (2026-01-23)
 
-Initial release with:
+#### Initial Release
 - Reddit scraping from r/CopilotStudio
 - LLM sentiment analysis (Ollama/Azure OpenAI)
 - Warning detection for escalation-worthy posts
 - Contributor tracking
 - Analytics dashboard
+
+#### Upgrade Instructions
+Fresh install - no migrations needed. Database tables are created automatically on first run.
 
 ---
 

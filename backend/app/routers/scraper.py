@@ -73,19 +73,25 @@ def get_scrape_status():
     )
 
 
-def run_analyze_all():
-    """Background task to analyze all posts without analysis."""
+def run_analyze_all(reanalyze: bool = False):
+    """Background task to analyze posts."""
     from app.services.llm_analyzer import analyzer
 
     db = SessionLocal()
     try:
-        # Get posts without any analysis
-        posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
-        pending = db.query(Post).filter(
-            ~Post.id.in_(posts_with_analyses)
-        ).all()
+        if reanalyze:
+            # Re-analyze all posts regardless of status
+            posts = db.query(Post).all()
+        else:
+            # Get posts without any analysis
+            posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
+            posts = db.query(Post).filter(
+                ~Post.id.in_(posts_with_analyses)
+            ).all()
 
-        for post in pending:
+        print(f"Analyzing {len(posts)} posts (reanalyze={reanalyze})")
+
+        for post in posts:
             try:
                 asyncio.run(analyzer.analyze_post(db, post))
             except Exception as e:
@@ -95,7 +101,12 @@ def run_analyze_all():
 
 
 @router.post("/analyze-all")
-def trigger_analyze_all(background_tasks: BackgroundTasks):
-    """Analyze all posts without analysis."""
-    background_tasks.add_task(run_analyze_all)
-    return {"message": "Analysis started for all unanalyzed posts"}
+def trigger_analyze_all(
+    background_tasks: BackgroundTasks,
+    reanalyze: bool = False,
+):
+    """Analyze posts. Set reanalyze=true to re-run analysis on all posts."""
+    background_tasks.add_task(run_analyze_all, reanalyze=reanalyze)
+    if reanalyze:
+        return {"message": "Re-analysis started for ALL posts"}
+    return {"message": "Analysis started for unanalyzed posts"}

@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import Link from "next/link"
-import { BarChart3, FileText, Users, Home } from "lucide-react"
+import { Providers } from "@/components/Providers"
+import { Sidebar } from "@/components/Sidebar"
+import { Header } from "@/components/Header"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -19,50 +20,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex min-h-screen">
-          {/* Sidebar */}
-          <aside className="w-64 border-r bg-card">
-            <div className="p-6">
-              <h1 className="text-lg font-semibold">Reddit Monitor</h1>
-              <p className="text-sm text-muted-foreground">Copilot Studio</p>
+        <Providers>
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="flex-1 flex flex-col">
+              <Header />
+              <main className="flex-1 overflow-auto">
+                {children}
+              </main>
             </div>
-            <nav className="px-4 space-y-2">
-              <Link
-                href="/"
-                className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-              >
-                <Home className="h-4 w-4" />
-                Dashboard
-              </Link>
-              <Link
-                href="/posts"
-                className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-              >
-                <FileText className="h-4 w-4" />
-                Posts
-              </Link>
-              <Link
-                href="/contributors"
-                className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-              >
-                <Users className="h-4 w-4" />
-                Contributors
-              </Link>
-              <Link
-                href="/analytics"
-                className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Analytics
-              </Link>
-            </nav>
-          </aside>
-
-          {/* Main content */}
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
-        </div>
+          </div>
+        </Providers>
       </body>
     </html>
   )

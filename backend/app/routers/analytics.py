@@ -25,10 +25,15 @@ def get_overview_stats(db: Session = Depends(get_db)):
         or 0
     )
 
-    # Pending count
-    pending_count = (
-        db.query(func.count(Post.id)).filter(Post.status == "pending").scalar() or 0
+    # Analyzed count (posts with at least one analysis)
+    posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
+    analyzed_count = (
+        db.query(func.count(Post.id))
+        .filter(Post.id.in_(posts_with_analyses))
+        .scalar()
+        or 0
     )
+    not_analyzed_count = total_posts - analyzed_count
 
     # Sentiment breakdown (from latest analyses)
     sentiment_counts = (
@@ -47,14 +52,14 @@ def get_overview_stats(db: Session = Depends(get_db)):
         (negative_count / analyzed_total * 100) if analyzed_total > 0 else 0
     )
 
-    # Handled percentage
-    handled_count = (
+    # Has reply count (posts with at least one contributor reply)
+    posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
+    has_reply_count = (
         db.query(func.count(Post.id))
-        .filter(Post.status == "handled")
+        .filter(Post.id.in_(posts_with_replies))
         .scalar()
         or 0
     )
-    handled_percentage = (handled_count / total_posts * 100) if total_posts > 0 else 0
 
     # Top subreddit
     top_subreddit_result = (
@@ -83,13 +88,24 @@ def get_overview_stats(db: Session = Depends(get_db)):
         or 0
     )
 
+    # In progress count - posts that are checked out but don't have a reply yet
+    in_progress_count = (
+        db.query(func.count(Post.id))
+        .filter(Post.checked_out_by.isnot(None))
+        .filter(~Post.id.in_(posts_with_replies))
+        .scalar()
+        or 0
+    )
+
     return OverviewStats(
         total_posts=total_posts,
         posts_last_24h=posts_last_24h,
         negative_percentage=round(negative_percentage, 1),
-        handled_count=handled_count,
-        pending_count=pending_count,
+        analyzed_count=analyzed_count,
+        not_analyzed_count=not_analyzed_count,
+        has_reply_count=has_reply_count,
         warning_count=warning_count,
+        in_progress_count=in_progress_count,
         top_subreddit=top_subreddit,
     )
 
@@ -187,25 +203,42 @@ def get_contributor_leaderboard(
 
 @router.get("/status-breakdown")
 def get_status_breakdown(db: Session = Depends(get_db)):
-    """Get post counts by status."""
-    results = (
-        db.query(
-            Post.status,
-            func.count(Post.id).label("count"),
-        )
-        .group_by(Post.status)
-        .all()
+    """Get post counts by analysis and reply status."""
+    total_posts = db.query(func.count(Post.id)).scalar() or 0
+
+    # Posts with analyses
+    posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
+    analyzed_count = (
+        db.query(func.count(Post.id))
+        .filter(Post.id.in_(posts_with_analyses))
+        .scalar()
+        or 0
     )
 
-    return [{"status": r.status, "count": r.count} for r in results]
+    # Posts with replies
+    posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
+    has_reply_count = (
+        db.query(func.count(Post.id))
+        .filter(Post.id.in_(posts_with_replies))
+        .scalar()
+        or 0
+    )
+
+    return [
+        {"status": "analyzed", "count": analyzed_count},
+        {"status": "not_analyzed", "count": total_posts - analyzed_count},
+        {"status": "has_reply", "count": has_reply_count},
+        {"status": "no_reply", "count": total_posts - has_reply_count},
+    ]
 
 
 @router.get("/warnings")
-def get_unhandled_warnings(
+def get_warnings(
     limit: int = Query(10, ge=1, le=50),
+    without_reply: bool = Query(False, description="Only show posts without MS reply"),
     db: Session = Depends(get_db),
 ):
-    """Get unhandled posts with warning flag (is_warning=True and status != 'handled')."""
+    """Get posts with warning flag (is_warning=True)."""
     # Subquery to get the latest analysis ID for each post
     latest_analysis = (
         db.query(
@@ -216,7 +249,7 @@ def get_unhandled_warnings(
         .subquery()
     )
 
-    # Get posts where latest analysis has is_warning=True and post is not handled
+    # Get posts where latest analysis has is_warning=True
     warning_post_ids = (
         db.query(Analysis.post_id)
         .join(latest_analysis, Analysis.id == latest_analysis.c.max_id)
@@ -224,14 +257,14 @@ def get_unhandled_warnings(
         .subquery()
     )
 
-    posts = (
-        db.query(Post)
-        .filter(Post.id.in_(warning_post_ids))
-        .filter(Post.status != "handled")
-        .order_by(Post.created_utc.desc())
-        .limit(limit)
-        .all()
-    )
+    query = db.query(Post).filter(Post.id.in_(warning_post_ids))
+
+    # Optionally filter to posts without replies
+    if without_reply:
+        posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
+        query = query.filter(~Post.id.in_(posts_with_replies))
+
+    posts = query.order_by(Post.created_utc.desc()).limit(limit).all()
 
     # Build response with summary info for the tile
     result = []
@@ -242,7 +275,8 @@ def get_unhandled_warnings(
             "title": post.title,
             "author": post.author,
             "created_utc": post.created_utc,
-            "status": post.status,
+            "is_analyzed": post.is_analyzed,
+            "has_contributor_reply": len(post.contributor_replies) > 0,
             "sentiment": latest.sentiment if latest else None,
             "summary": latest.summary if latest else None,
         })

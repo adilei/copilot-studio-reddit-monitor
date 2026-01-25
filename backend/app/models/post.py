@@ -1,15 +1,8 @@
-from sqlalchemy import Column, String, Text, Integer, DateTime, Enum
+from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-import enum
 
 from app.database import Base
-
-
-class PostStatus(str, enum.Enum):
-    PENDING = "pending"
-    ANALYZED = "analyzed"
-    HANDLED = "handled"
 
 
 class Post(Base):
@@ -25,11 +18,20 @@ class Post(Base):
     num_comments = Column(Integer, default=0)
     created_utc = Column(DateTime, nullable=False, index=True)
     scraped_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(String, default=PostStatus.PENDING.value, index=True)
+
+    # Checkout fields
+    checked_out_by = Column(Integer, ForeignKey("contributors.id"), nullable=True)
+    checked_out_at = Column(DateTime, nullable=True)
 
     # Relationships
     analyses = relationship("Analysis", back_populates="post", cascade="all, delete-orphan")
     contributor_replies = relationship("ContributorReply", back_populates="post", cascade="all, delete-orphan")
+    checked_out_contributor = relationship("Contributor", foreign_keys=[checked_out_by])
+
+    @property
+    def is_analyzed(self):
+        """Whether this post has been analyzed."""
+        return len(self.analyses) > 0
 
     @property
     def latest_analysis(self):

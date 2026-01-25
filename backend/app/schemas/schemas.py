@@ -48,11 +48,14 @@ class ContributorReplyResponse(BaseModel):
 
 class PostResponse(PostBase):
     scraped_at: datetime
-    status: str
+    is_analyzed: bool = False
     latest_sentiment: str | None = None
     latest_sentiment_score: float | None = None
     is_warning: bool = False
     has_contributor_reply: bool = False
+    checked_out_by: int | None = None
+    checked_out_by_name: str | None = None
+    checked_out_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -66,8 +69,12 @@ class PostDetail(PostResponse):
         from_attributes = True
 
 
-class PostStatusUpdate(BaseModel):
-    status: Literal["pending", "analyzed", "handled"]
+class PostCheckoutRequest(BaseModel):
+    contributor_id: int
+
+
+class PostReleaseRequest(BaseModel):
+    contributor_id: int
 
 
 # Analysis schemas
@@ -119,9 +126,11 @@ class OverviewStats(BaseModel):
     total_posts: int
     posts_last_24h: int
     negative_percentage: float
-    handled_count: int
-    pending_count: int
+    analyzed_count: int
+    not_analyzed_count: int
+    has_reply_count: int = 0
     warning_count: int = 0
+    in_progress_count: int = 0
     top_subreddit: str | None = None
 
 

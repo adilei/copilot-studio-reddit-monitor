@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import Post, Analysis
-from app.models.post import PostStatus
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +80,6 @@ class LLMAnalyzer:
             )
 
             db.add(analysis)
-            # Don't downgrade from "handled" to "analyzed"
-            if post.status != PostStatus.HANDLED.value:
-                post.status = PostStatus.ANALYZED.value
             db.commit()
             db.refresh(analysis)
 

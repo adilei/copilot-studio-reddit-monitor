@@ -102,10 +102,15 @@ pytest tests/test_specific.py -v  # Run single file
 - Only frustrated/angry posts = NEGATIVE
 - Analysis does NOT downgrade "handled" status
 
-### Post Status Flow
-- `pending` → Post scraped, awaiting analysis
-- `analyzed` → LLM has analyzed the post
-- `handled` → Microsoft contributor has replied (protected from downgrade)
+### Post Data Model (Orthogonal Dimensions)
+Posts have three independent state dimensions:
+1. **Analysis** (automatic): `is_analyzed` - computed from whether analyses exist
+2. **Checkout** (manual): `checked_out_by` - contributor claiming the post to work on
+3. **MS Response** (automatic): `has_contributor_reply` - detected from comment scraping
+
+These are intentionally orthogonal - a post can be checked out but already have a response, or have no checkout but multiple analyses.
+
+Note: Future enhancement to add "resolution" tracking is documented in GitHub issue #4.
 
 ## Important Implementation Notes
 
@@ -124,10 +129,11 @@ Backend allows origins: localhost:3000, 3001, 3002, and 127.0.0.1 variants (Next
 ## API Endpoints
 
 ### Posts
-- `GET /api/posts` - List posts (supports status, sentiment, subreddit filters)
+- `GET /api/posts` - List posts (supports analyzed, sentiment, has_reply, checkout filters)
 - `GET /api/posts/{id}` - Get post details with analyses
-- `PATCH /api/posts/{id}/status` - Update post status
 - `POST /api/posts/{id}/analyze` - Trigger analysis for single post
+- `POST /api/posts/{id}/checkout` - Checkout post for a contributor
+- `POST /api/posts/{id}/release` - Release checkout on a post
 
 ### Scraper
 - `POST /api/scrape` - Trigger manual scrape
@@ -157,7 +163,19 @@ APScheduler runs:
 - Scrape job: Every hour
 - Analysis job: Every 5 minutes (analyzes pending posts)
 
-## Adding Tests for New Features
+## Development Workflow
+
+### Issue-Based Feature Development
+Before implementing significant features or data model changes:
+1. **Create GitHub issue(s)** to document the spec and rationale
+2. **Label appropriately** (enhancement, bug, etc.)
+3. **Implement** the feature on a branch
+4. **Create PR** linking to the issue(s)
+5. **Future work** should be tracked as separate issues (e.g., #4 for resolution tracking)
+
+This ensures features are discussed/documented before code is written, and provides traceability.
+
+### Adding Tests for New Features
 When adding a new feature, add corresponding E2E tests **immediately**:
 1. Create test cases in the relevant spec file (or new file for new pages)
 2. Test the happy path and edge cases

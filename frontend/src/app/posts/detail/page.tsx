@@ -7,20 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { SentimentBadge } from "@/components/SentimentBadge"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   getPost,
-  updatePostStatus,
   analyzePost,
+  checkoutPost,
+  releasePost,
   type PostDetail,
-  type Post,
 } from "@/lib/api"
-import { formatDate } from "@/lib/utils"
+import { useContributor } from "@/lib/contributor-context"
+import { formatDate, formatRelativeTime } from "@/lib/utils"
 import {
   ArrowLeft,
   ExternalLink,
@@ -28,6 +22,9 @@ import {
   ThumbsUp,
   Sparkles,
   CheckCircle,
+  Lock,
+  Unlock,
+  UserCheck,
 } from "lucide-react"
 
 export default function PostDetailPage() {
@@ -42,10 +39,17 @@ function PostDetailContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const id = searchParams.get("id")
+  const { contributor } = useContributor()
 
   const [post, setPost] = useState<PostDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [checkingOut, setCheckingOut] = useState(false)
+
+  const isCheckedOutByMe =
+    contributor && post?.checked_out_by === contributor.id
+  const isCheckedOutByOther =
+    post?.checked_out_by && (!contributor || post.checked_out_by !== contributor.id)
 
   useEffect(() => {
     if (id) {
@@ -67,16 +71,6 @@ function PostDetailContent() {
     }
   }
 
-  async function handleStatusChange(status: Post["status"]) {
-    if (!post) return
-    try {
-      await updatePostStatus(post.id, status)
-      setPost({ ...post, status })
-    } catch (error) {
-      console.error("Failed to update status:", error)
-    }
-  }
-
   async function handleAnalyze() {
     if (!post) return
     setAnalyzing(true)
@@ -84,7 +78,7 @@ function PostDetailContent() {
       const analysis = await analyzePost(post.id)
       setPost({
         ...post,
-        status: "analyzed",
+        is_analyzed: true,
         latest_sentiment: analysis.sentiment,
         latest_sentiment_score: analysis.sentiment_score,
         is_warning: analysis.is_warning,
@@ -94,6 +88,42 @@ function PostDetailContent() {
       console.error("Failed to analyze post:", error)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handleCheckout() {
+    if (!post || !contributor) return
+    setCheckingOut(true)
+    try {
+      const updated = await checkoutPost(post.id, contributor.id)
+      setPost({
+        ...post,
+        checked_out_by: updated.checked_out_by,
+        checked_out_by_name: updated.checked_out_by_name,
+        checked_out_at: updated.checked_out_at,
+      })
+    } catch (error) {
+      console.error("Failed to checkout post:", error)
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
+  async function handleRelease() {
+    if (!post || !contributor) return
+    setCheckingOut(true)
+    try {
+      await releasePost(post.id, contributor.id)
+      setPost({
+        ...post,
+        checked_out_by: null,
+        checked_out_by_name: null,
+        checked_out_at: null,
+      })
+    } catch (error) {
+      console.error("Failed to release post:", error)
+    } finally {
+      setCheckingOut(false)
     }
   }
 
@@ -158,19 +188,16 @@ function PostDetailContent() {
             </span>
           </div>
 
-          <div className="flex items-center gap-4 pt-4 border-t">
+          <div className="flex flex-wrap items-center gap-4 pt-4 border-t">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Status:</span>
-              <Select value={post.status} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="analyzed">Analyzed</SelectItem>
-                  <SelectItem value="handled">Handled</SelectItem>
-                </SelectContent>
-              </Select>
+              <span className="text-sm font-medium">Analysis:</span>
+              {post.is_analyzed ? (
+                <Badge className="bg-blue-100 text-blue-800">Analyzed</Badge>
+              ) : (
+                <Badge variant="outline" className="text-yellow-600 border-yellow-300">
+                  Not Analyzed
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Sentiment:</span>
@@ -181,10 +208,75 @@ function PostDetailContent() {
                 isWarning={post.is_warning}
               />
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">MS Reply:</span>
+              {post.has_contributor_reply ? (
+                <Badge className="bg-green-100 text-green-800">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Yes
+                </Badge>
+              ) : (
+                <Badge variant="outline">No</Badge>
+              )}
+            </div>
             <Button onClick={handleAnalyze} disabled={analyzing} variant="outline">
               <Sparkles className="h-4 w-4 mr-2" />
-              {analyzing ? "Analyzing..." : "Analyze"}
+              {analyzing ? "Analyzing..." : post.is_analyzed ? "Re-analyze" : "Analyze"}
             </Button>
+          </div>
+
+          {/* Checkout section */}
+          <div className="flex flex-wrap items-center gap-4 pt-4 border-t">
+            {isCheckedOutByMe && (
+              <div className="flex items-center gap-2">
+                <Badge className="bg-blue-500 text-white">
+                  <UserCheck className="h-3 w-3 mr-1" />
+                  You're handling this
+                </Badge>
+                {post.checked_out_at && (
+                  <span className="text-xs text-muted-foreground">
+                    since {formatRelativeTime(post.checked_out_at)}
+                  </span>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRelease}
+                  disabled={checkingOut}
+                >
+                  <Unlock className="h-4 w-4 mr-1" />
+                  Release
+                </Button>
+              </div>
+            )}
+            {isCheckedOutByOther && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-orange-600 border-orange-300">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Checked out by {post.checked_out_by_name}
+                </Badge>
+                {post.checked_out_at && (
+                  <span className="text-xs text-muted-foreground">
+                    since {formatRelativeTime(post.checked_out_at)}
+                  </span>
+                )}
+              </div>
+            )}
+            {!post.checked_out_by && contributor && (
+              <Button
+                variant="outline"
+                onClick={handleCheckout}
+                disabled={checkingOut}
+              >
+                <Lock className="h-4 w-4 mr-1" />
+                Checkout to handle
+              </Button>
+            )}
+            {!post.checked_out_by && !contributor && (
+              <div className="text-sm text-muted-foreground">
+                Select a contributor in the sidebar to checkout this post
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

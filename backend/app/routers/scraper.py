@@ -5,8 +5,7 @@ import asyncio
 from app.database import get_db, SessionLocal
 from app.schemas import ScrapeRequest, ScrapeStatus
 from app.services.reddit_scraper import scraper
-from app.models import Post
-from app.models.post import PostStatus
+from app.models import Post, Analysis
 
 router = APIRouter(prefix="/api/scrape", tags=["scraper"])
 
@@ -84,9 +83,10 @@ def run_analyze_all(reanalyze: bool = False):
             # Re-analyze all posts regardless of status
             posts = db.query(Post).all()
         else:
-            # Only analyze pending posts
+            # Get posts without any analysis
+            posts_with_analyses = db.query(Analysis.post_id).distinct().subquery()
             posts = db.query(Post).filter(
-                Post.status == PostStatus.PENDING.value
+                ~Post.id.in_(posts_with_analyses)
             ).all()
 
         print(f"Analyzing {len(posts)} posts (reanalyze={reanalyze})")
@@ -109,4 +109,4 @@ def trigger_analyze_all(
     background_tasks.add_task(run_analyze_all, reanalyze=reanalyze)
     if reanalyze:
         return {"message": "Re-analysis started for ALL posts"}
-    return {"message": "Analysis started for pending posts"}
+    return {"message": "Analysis started for unanalyzed posts"}

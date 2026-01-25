@@ -12,11 +12,14 @@ export interface Post {
   num_comments: number
   created_utc: string
   scraped_at: string
-  status: "pending" | "analyzed" | "handled"
+  is_analyzed: boolean
   latest_sentiment: "positive" | "neutral" | "negative" | null
   is_warning: boolean
   latest_sentiment_score: number | null
   has_contributor_reply: boolean
+  checked_out_by: number | null
+  checked_out_by_name: string | null
+  checked_out_at: string | null
 }
 
 export interface PostDetail extends Post {
@@ -65,9 +68,11 @@ export interface OverviewStats {
   total_posts: number
   posts_last_24h: number
   negative_percentage: number
-  handled_count: number
-  pending_count: number
+  analyzed_count: number
+  not_analyzed_count: number
+  has_reply_count: number
   warning_count: number
+  in_progress_count: number
   top_subreddit: string | null
 }
 
@@ -103,11 +108,14 @@ async function fetchApi<T>(
 export async function getPosts(params?: {
   skip?: number
   limit?: number
-  status?: string
+  analyzed?: boolean
   sentiment?: string
   search?: string
   sort_by?: string
   sort_order?: string
+  checked_out_by?: number
+  available_only?: boolean
+  has_reply?: boolean
 }): Promise<Post[]> {
   const searchParams = new URLSearchParams()
   if (params) {
@@ -123,19 +131,29 @@ export async function getPost(id: string): Promise<PostDetail> {
   return fetchApi<PostDetail>(`/api/posts/${id}`)
 }
 
-export async function updatePostStatus(
-  id: string,
-  status: Post["status"]
-): Promise<Post> {
-  return fetchApi<Post>(`/api/posts/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
-  })
-}
-
 export async function analyzePost(id: string): Promise<Analysis> {
   return fetchApi<Analysis>(`/api/posts/${id}/analyze`, {
     method: "POST",
+  })
+}
+
+export async function checkoutPost(
+  id: string,
+  contributorId: number
+): Promise<Post> {
+  return fetchApi<Post>(`/api/posts/${id}/checkout`, {
+    method: "POST",
+    body: JSON.stringify({ contributor_id: contributorId }),
+  })
+}
+
+export async function releasePost(
+  id: string,
+  contributorId: number
+): Promise<Post> {
+  return fetchApi<Post>(`/api/posts/${id}/release`, {
+    method: "POST",
+    body: JSON.stringify({ contributor_id: contributorId }),
   })
 }
 
@@ -212,7 +230,8 @@ export interface WarningPost {
   title: string
   author: string
   created_utc: string
-  status: string
+  is_analyzed: boolean
+  has_contributor_reply: boolean
   sentiment: "positive" | "neutral" | "negative" | null
   summary: string | null
 }

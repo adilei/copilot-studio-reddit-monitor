@@ -1,23 +1,63 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { SentimentBadge } from "@/components/SentimentBadge"
 import { formatRelativeTime } from "@/lib/utils"
-import { ExternalLink, MessageSquare, ThumbsUp, CheckCircle } from "lucide-react"
-import type { Post } from "@/lib/api"
+import {
+  ExternalLink,
+  MessageSquare,
+  ThumbsUp,
+  CheckCircle,
+  UserCheck,
+  Lock,
+  Unlock,
+  Sparkles,
+} from "lucide-react"
+import { checkoutPost, releasePost, type Post } from "@/lib/api"
+import { useContributor } from "@/lib/contributor-context"
 import Link from "next/link"
 
 interface PostCardProps {
   post: Post
+  onPostUpdate?: (post: Post) => void
 }
 
-export function PostCard({ post }: PostCardProps) {
-  const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    analyzed: "bg-blue-100 text-blue-800",
-    handled: "bg-green-100 text-green-800",
-    answered: "bg-purple-100 text-purple-800",
+export function PostCard({ post, onPostUpdate }: PostCardProps) {
+  const { contributor } = useContributor()
+  const [loading, setLoading] = useState(false)
+
+  const isCheckedOutByMe =
+    contributor && post.checked_out_by === contributor.id
+  const isCheckedOutByOther =
+    post.checked_out_by && (!contributor || post.checked_out_by !== contributor.id)
+
+  async function handleCheckout() {
+    if (!contributor) return
+    setLoading(true)
+    try {
+      const updated = await checkoutPost(post.id, contributor.id)
+      onPostUpdate?.(updated)
+    } catch (error) {
+      console.error("Failed to checkout post:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRelease() {
+    if (!contributor) return
+    setLoading(true)
+    try {
+      const updated = await releasePost(post.id, contributor.id)
+      onPostUpdate?.(updated)
+    } catch (error) {
+      console.error("Failed to release post:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -44,9 +84,24 @@ export function PostCard({ post }: PostCardProps) {
               score={post.latest_sentiment_score}
               isWarning={post.is_warning}
             />
-            <Badge className={statusColors[post.status]}>
-              {post.status}
-            </Badge>
+            {!post.is_analyzed && (
+              <Badge variant="outline" className="text-yellow-600 border-yellow-300">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Not Analyzed
+              </Badge>
+            )}
+            {isCheckedOutByMe && (
+              <Badge className="bg-blue-500 text-white">
+                <UserCheck className="h-3 w-3 mr-1" />
+                You're handling
+              </Badge>
+            )}
+            {isCheckedOutByOther && (
+              <Badge variant="outline" className="text-orange-600 border-orange-300">
+                <Lock className="h-3 w-3 mr-1" />
+                {post.checked_out_by_name}
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -73,15 +128,39 @@ export function PostCard({ post }: PostCardProps) {
               </span>
             )}
           </div>
-          <a
-            href={post.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            View on Reddit
-            <ExternalLink className="h-3 w-3" />
-          </a>
+          <div className="flex items-center gap-2">
+            {contributor && !post.checked_out_by && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCheckout}
+                disabled={loading}
+              >
+                <Lock className="h-3 w-3 mr-1" />
+                Checkout
+              </Button>
+            )}
+            {isCheckedOutByMe && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRelease}
+                disabled={loading}
+              >
+                <Unlock className="h-3 w-3 mr-1" />
+                Release
+              </Button>
+            )}
+            <a
+              href={post.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              View on Reddit
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
         </div>
       </CardContent>
     </Card>

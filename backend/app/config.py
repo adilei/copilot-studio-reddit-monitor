@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     # Reddit API
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
-    reddit_user_agent: str = "CopilotStudioMonitor/1.0"
+    reddit_user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     # LLM Provider
     llm_provider: Literal["ollama", "azure"] = "ollama"

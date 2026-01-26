@@ -135,7 +135,6 @@ class RedditScraper:
             score=post_data.get("score", 0),
             num_comments=post_data.get("num_comments", 0),
             created_utc=datetime.fromtimestamp(post_data.get("created_utc", 0), tz=timezone.utc),
-            status=PostStatus.PENDING.value,
         )
 
         db.add(post)

@@ -62,6 +62,10 @@ export interface ScrapeStatus {
   last_run: string | null
   posts_scraped: number
   errors: string[]
+  // Sync info (for destination servers receiving synced data)
+  last_synced_at: string | null
+  last_sync_source_scraped_at: string | null
+  last_sync_posts: number
 }
 
 export interface OverviewStats {

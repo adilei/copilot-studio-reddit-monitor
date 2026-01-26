@@ -190,28 +190,46 @@ export function Dashboard() {
         </Card>
       )}
 
-      {/* Scrape status */}
+      {/* Scrape/Sync status */}
       {scrapeStatus && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Scraper Status</CardTitle>
+            <CardTitle className="text-lg">Data Freshness</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full ${scrapeStatus.is_running ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
-                <span>{scrapeStatus.is_running ? "Running" : "Idle"}</span>
+                <span>{scrapeStatus.is_running ? "Scraping..." : "Idle"}</span>
               </div>
+
+              {/* Show scrape info */}
               {scrapeStatus.last_run && (
-                <p className="text-sm text-muted-foreground">
-                  Last run: {new Date(scrapeStatus.last_run).toLocaleString()}
-                </p>
+                <div className="text-sm">
+                  <p className="font-medium">Last scraped</p>
+                  <p className="text-muted-foreground">
+                    {new Date(scrapeStatus.last_run).toLocaleString()}
+                    {scrapeStatus.posts_scraped > 0 && ` (${scrapeStatus.posts_scraped} posts)`}
+                  </p>
+                </div>
               )}
-              {scrapeStatus.posts_scraped > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Posts scraped in last run: {scrapeStatus.posts_scraped}
-                </p>
+
+              {/* Show sync info if this server received synced data */}
+              {scrapeStatus.last_synced_at && (
+                <div className="text-sm border-t pt-2">
+                  <p className="font-medium">Last synced</p>
+                  <p className="text-muted-foreground">
+                    Received: {new Date(scrapeStatus.last_synced_at).toLocaleString()}
+                    {scrapeStatus.last_sync_posts > 0 && ` (${scrapeStatus.last_sync_posts} posts)`}
+                  </p>
+                  {scrapeStatus.last_sync_source_scraped_at && (
+                    <p className="text-muted-foreground">
+                      Source scraped: {new Date(scrapeStatus.last_sync_source_scraped_at).toLocaleString()}
+                    </p>
+                  )}
+                </div>
               )}
+
               {scrapeStatus.errors.length > 0 && (
                 <div className="text-sm text-red-500">
                   Errors: {scrapeStatus.errors.join(", ")}

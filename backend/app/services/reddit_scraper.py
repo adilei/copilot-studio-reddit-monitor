@@ -24,6 +24,10 @@ class RedditScraper:
         self.base_url = "https://www.reddit.com"
         self.headers = {"User-Agent": self.settings.reddit_user_agent}
         self.subreddit = "CopilotStudio"
+        # Sync tracking
+        self.last_synced_at: datetime | None = None
+        self.last_sync_source_scraped_at: datetime | None = None
+        self.last_sync_posts: int = 0
 
     def scrape(
         self,
@@ -274,6 +278,10 @@ class RedditScraper:
             "last_run": self.last_run,
             "posts_scraped": self.posts_scraped,
             "errors": self.errors,
+            # Sync info
+            "last_synced_at": self.last_synced_at,
+            "last_sync_source_scraped_at": self.last_sync_source_scraped_at,
+            "last_sync_posts": self.last_sync_posts,
         }
 
 

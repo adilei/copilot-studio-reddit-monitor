@@ -128,6 +128,12 @@ Backend allows origins: localhost:3000, 3001, 3002, and 127.0.0.1 variants (Next
 
 ## API Endpoints
 
+### Sync (for remote data transfer)
+- `POST /api/sync` - Receive posts/contributors/replies from another instance
+  - Modes: `sync` (upsert) or `override` (delete all, then insert)
+  - Does NOT scrape Reddit - only receives data from other servers
+  - Use `export_to_remote.py` script to push data from source to destination
+
 ### Posts
 - `GET /api/posts` - List posts (supports analyzed, sentiment, has_reply, checkout filters)
 - `GET /api/posts/{id}` - Get post details with analyses
@@ -185,3 +191,21 @@ When adding a new feature, add corresponding E2E tests **immediately**:
 **Important**: When adding clickable elements (links, buttons that navigate), always test that the destination route exists and renders correctly. Don't assume links work - verify them in the browser or with E2E tests.
 
 See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.
+
+## Important Notes
+
+### Reddit Scraping Rate Limits
+- Reddit blocks requests with bot-like User-Agents (403 Blocked)
+- Using browser-like User-Agent in config.py to avoid blocks
+- Too many requests in quick succession triggers 429 Too Many Requests
+- Wait 5+ minutes between scrape attempts if rate limited
+
+### Remote Sync Feature (PR #6, #7)
+- Scrape button removed from Dashboard - scraping via API/scheduler only
+- `POST /api/sync` receives data from other instances (server-to-server)
+- `python scripts/export_to_remote.py <url>` pushes local data to remote
+- Dashboard shows "Data Freshness" with both scrape time and sync time
+- Destination servers display when they received data AND when source scraped it
+
+### Virtual Environment
+- Backend venv is at `backend/venv/` (not `.venv`)

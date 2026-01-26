@@ -16,6 +16,13 @@ from app.schemas.schemas import (
     OverviewStats,
     SentimentTrend,
 )
+from app.schemas.sync import (
+    SyncPostData,
+    SyncContributorData,
+    SyncContributorReplyData,
+    SyncRequest,
+    SyncResponse,
+)
 
 __all__ = [
     "PostBase",
@@ -34,4 +41,9 @@ __all__ = [
     "ScrapeStatus",
     "OverviewStats",
     "SentimentTrend",
+    "SyncPostData",
+    "SyncContributorData",
+    "SyncContributorReplyData",
+    "SyncRequest",
+    "SyncResponse",
 ]

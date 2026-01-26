@@ -142,13 +142,18 @@ def sync_data(request: SyncRequest, db: Session = Depends(get_db)):
                     db.add(reply)
                     replies_created += 1
 
-        # Update scraper status if source_scraped_at provided
+        db.commit()
+
+        # Update scraper sync status
+        synced_at = datetime.now(timezone.utc)
+        scraper.last_synced_at = synced_at
+        scraper.last_sync_posts = posts_created + posts_updated
         if request.source_scraped_at:
+            scraper.last_sync_source_scraped_at = request.source_scraped_at
+            # Also update last_run so the UI shows when data was actually scraped
             scraper.last_run = request.source_scraped_at
             scraper.posts_scraped = posts_created + posts_updated
-            logger.info(f"Updated scraper status: last_run={request.source_scraped_at}")
-
-        db.commit()
+        logger.info(f"Updated scraper status: synced_at={synced_at}, source_scraped_at={request.source_scraped_at}")
 
         logger.info(
             f"Sync completed: mode={request.mode}, "
@@ -166,7 +171,7 @@ def sync_data(request: SyncRequest, db: Session = Depends(get_db)):
             contributors_created=contributors_created,
             contributors_updated=contributors_updated,
             replies_created=replies_created,
-            synced_at=datetime.now(timezone.utc),
+            synced_at=synced_at,
             errors=errors,
         )
 

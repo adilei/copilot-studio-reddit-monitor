@@ -70,6 +70,9 @@ def get_scrape_status():
         last_run=status["last_run"],
         posts_scraped=status["posts_scraped"],
         errors=status["errors"],
+        last_synced_at=status["last_synced_at"],
+        last_sync_source_scraped_at=status["last_sync_source_scraped_at"],
+        last_sync_posts=status["last_sync_posts"],
     )
 
 

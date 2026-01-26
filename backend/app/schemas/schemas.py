@@ -119,6 +119,10 @@ class ScrapeStatus(BaseModel):
     last_run: datetime | None = None
     posts_scraped: int = 0
     errors: list[str] = []
+    # Sync info (for destination servers receiving synced data)
+    last_synced_at: datetime | None = None
+    last_sync_source_scraped_at: datetime | None = None
+    last_sync_posts: int = 0
 
 
 # Analytics schemas

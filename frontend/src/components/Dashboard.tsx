@@ -3,17 +3,15 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import {
   getOverviewStats,
   getScrapeStatus,
-  triggerScrape,
   getWarningPosts,
   type OverviewStats,
   type ScrapeStatus,
   type WarningPost,
 } from "@/lib/api"
-import { RefreshCw, FileText, AlertTriangle, CheckCircle, Clock, AlertCircle, UserCheck } from "lucide-react"
+import { FileText, AlertTriangle, CheckCircle, Clock, AlertCircle, UserCheck } from "lucide-react"
 import { formatRelativeTime } from "@/lib/utils"
 import Link from "next/link"
 
@@ -23,7 +21,6 @@ export function Dashboard() {
   const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus | null>(null)
   const [warningPosts, setWarningPosts] = useState<WarningPost[]>([])
   const [loading, setLoading] = useState(true)
-  const [scraping, setScraping] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -54,47 +51,17 @@ export function Dashboard() {
     }
   }
 
-  async function loadScrapeStatus() {
-    try {
-      const statusData = await getScrapeStatus()
-      setScrapeStatus(statusData)
-    } catch (error) {
-      console.error("Failed to load scrape status:", error)
-    }
-  }
-
-  async function handleScrape() {
-    setScraping(true)
-    try {
-      await triggerScrape({ time_range: "week" })
-      await loadScrapeStatus()
-    } catch (error) {
-      console.error("Failed to trigger scrape:", error)
-    } finally {
-      setScraping(false)
-    }
-  }
-
   if (loading) {
     return <div className="p-8 text-center">Loading dashboard...</div>
   }
 
   return (
     <div className="p-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Monitor Copilot Studio discussions on Reddit
-          </p>
-        </div>
-        <Button
-          onClick={handleScrape}
-          disabled={scraping || scrapeStatus?.is_running}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${scrapeStatus?.is_running ? "animate-spin" : ""}`} />
-          {scrapeStatus?.is_running ? "Scraping..." : "Scrape Now"}
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Monitor Copilot Studio discussions on Reddit
+        </p>
       </div>
 
       {/* Stats cards */}

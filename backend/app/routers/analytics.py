@@ -97,6 +97,9 @@ def get_overview_stats(db: Session = Depends(get_db)):
         or 0
     )
 
+    # Awaiting pickup count - posts without MS response AND not checked out
+    awaiting_pickup_count = total_posts - has_reply_count - in_progress_count
+
     return OverviewStats(
         total_posts=total_posts,
         posts_last_24h=posts_last_24h,
@@ -106,6 +109,7 @@ def get_overview_stats(db: Session = Depends(get_db)):
         has_reply_count=has_reply_count,
         warning_count=warning_count,
         in_progress_count=in_progress_count,
+        awaiting_pickup_count=awaiting_pickup_count,
         top_subreddit=top_subreddit,
     )
 

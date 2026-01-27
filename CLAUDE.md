@@ -206,6 +206,7 @@ See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.
 - `python scripts/export_to_remote.py <url>` pushes local data to remote
 - Dashboard shows "Data Freshness" with both scrape time and sync time
 - Destination servers display when they received data AND when source scraped it
+- **Known issue**: On fresh sync, contributor replies may fail with "Post not found" because replies are processed before posts are committed. Workaround: run sync twice.
 
 ### Virtual Environment
 - Backend venv is at `backend/venv/` (not `.venv`)

@@ -425,8 +425,9 @@ Open `https://YOUR-SITE.azurestaticapps.net` in a browser. The dashboard should 
 |----------|-------|-------------|
 | `LLM_PROVIDER` | `azure` | Use Azure OpenAI instead of Ollama |
 | `AZURE_OPENAI_ENDPOINT` | `https://xxx.openai.azure.com/` | Your Azure OpenAI endpoint (no path suffix) |
-| `AZURE_OPENAI_KEY` | `xxx` | Azure OpenAI API key |
-| `AZURE_OPENAI_DEPLOYMENT` | `gpt-5.2-chat` | Your model deployment name |
+| `AZURE_OPENAI_KEY` | `xxx` | Azure OpenAI API key (if using key auth) |
+| `AZURE_OPENAI_DEPLOYMENT` | `gpt-4o` | Your model deployment name |
+| `AZURE_OPENAI_AUTH_TYPE` | `key` or `managed_identity` | Auth method (default: `key`) |
 | `DATABASE_URL` | `sqlite:////home/data/reddit_monitor.db` | SQLite path (4 slashes!) |
 | `REDDIT_USER_AGENT` | `CopilotStudioMonitor/1.0` | User agent for Reddit API |
 | `ALLOWED_ORIGINS` | `https://xxx.azurestaticapps.net` | Frontend URL for CORS |
@@ -607,3 +608,78 @@ az webapp config appsettings list --resource-group mcs-social-monitor-rg --name 
 | Static Web Apps | Free | $0 |
 | Azure OpenAI | Pay-per-use | Variable |
 | **Total** | | **~$13 + OpenAI usage** |
+
+---
+
+## EMEA Deployment (January 2026)
+
+A second deployment was created in the "Copilot Studio EMEA playground" subscription.
+
+### Resources
+
+| Resource | Name | Location | URL |
+|----------|------|----------|-----|
+| Resource Group | `mcs-social-rg` | Sweden Central | - |
+| App Service | `mcs-social-api-emea` | Sweden Central | https://mcs-social-api-emea.azurewebsites.net |
+| Static Web App | `mcs-social-web` | West Europe | https://thankful-tree-0325e0003.1.azurestaticapps.net |
+| App Service Plan | `mcs-social-plan` | Sweden Central | B1 Linux |
+| Azure OpenAI | `mcs-social-oai-eus` | East US | https://mcs-social-oai-eus.openai.azure.com/ |
+
+### Managed Identity Authentication
+
+This deployment uses **Managed Identity** instead of API keys to authenticate with Azure OpenAI (required by subscription policy which disables local auth on Cognitive Services).
+
+**Configuration:**
+- `AZURE_OPENAI_AUTH_TYPE=managed_identity` (new env var)
+- App Service managed identity principal ID: `caddd6c5-8d83-4263-a93b-3f73748c400d`
+- Required RBAC role on Azure OpenAI: `Cognitive Services OpenAI User`
+
+**How it works:**
+1. App Service has a system-assigned managed identity enabled
+2. The managed identity is granted `Cognitive Services OpenAI User` role on the Azure OpenAI resource
+3. The backend uses `azure-identity` package with `DefaultAzureCredential` to obtain tokens
+4. No API keys are stored or transmitted
+
+### Environment Variables (EMEA Deployment)
+
+| Variable | Value |
+|----------|-------|
+| `LLM_PROVIDER` | `azure` |
+| `AZURE_OPENAI_ENDPOINT` | `https://mcs-social-oai-eus.openai.azure.com/` |
+| `AZURE_OPENAI_DEPLOYMENT` | `gpt-4o` |
+| `AZURE_OPENAI_AUTH_TYPE` | `managed_identity` |
+| `DATABASE_URL` | `sqlite:////home/data/reddit_monitor.db` |
+| `ALLOWED_ORIGINS` | `https://thankful-tree-0325e0003.1.azurestaticapps.net` |
+| `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` |
+
+### Deployment Notes
+
+1. **Azure OpenAI region:** Originally tried Sweden Central but encountered an outage. Created resource in East US instead.
+
+2. **Subscription policies:**
+   - Resource groups require `OwnerAlias` tag
+   - Cognitive Services require `disableLocalAuth: true` (no API keys)
+
+3. **Static Web Apps:** Not available in Sweden Central, deployed to West Europe.
+
+4. **Role assignments:** Requires Owner or User Access Administrator to grant managed identity access to Azure OpenAI.
+
+### Deployment Commands (EMEA)
+
+```bash
+# Backend deployment
+cd backend
+zip -r deploy.zip app migrations requirements.txt
+az webapp deploy --resource-group mcs-social-rg --name mcs-social-api-emea --src-path deploy.zip --type zip
+
+# Frontend deployment
+cd frontend
+NEXT_PUBLIC_API_URL=https://mcs-social-api-emea.azurewebsites.net npm run build
+az staticwebapp secrets list --name mcs-social-web --resource-group mcs-social-rg --query "properties.apiKey" -o tsv
+npx @azure/static-web-apps-cli deploy out --deployment-token "<token>" --env production
+
+# Sync data from local
+cd backend
+source venv/bin/activate
+python scripts/export_to_remote.py https://mcs-social-api-emea.azurewebsites.net
+```

@@ -77,6 +77,7 @@ export interface OverviewStats {
   has_reply_count: number
   warning_count: number
   in_progress_count: number
+  awaiting_pickup_count: number
   top_subreddit: string | null
 }
 

@@ -64,7 +64,7 @@ export function Dashboard() {
         </p>
       </div>
 
-      {/* Stats cards */}
+      {/* Stats cards - human workflow status */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
@@ -84,18 +84,32 @@ export function Dashboard() {
 
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push("/posts?sentiment=negative")}
+          onClick={() => router.push("/posts?has_reply=false&available_only=true")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Negative Sentiment</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
+            <CardTitle className="text-sm font-medium">Waiting for Pickup</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.negative_percentage?.toFixed(1) || 0}%
-            </div>
+            <div className="text-2xl font-bold">{stats?.awaiting_pickup_count || 0}</div>
             <p className="text-xs text-muted-foreground">
-              of analyzed posts
+              need attention
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push("/posts?checkout=checked_out&has_reply=false")}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <UserCheck className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.in_progress_count || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              checked out
             </p>
           </CardContent>
         </Card>
@@ -109,45 +123,27 @@ export function Dashboard() {
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.has_reply_count || 0} / {stats?.total_posts || 0}
-            </div>
+            <div className="text-2xl font-bold">{stats?.has_reply_count || 0}</div>
             <p className="text-xs text-muted-foreground">
-              posts with MS response
+              handled
             </p>
           </CardContent>
         </Card>
 
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push("/posts?checkout=my_checkouts")}
+          onClick={() => router.push("/posts?sentiment=negative")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Being Handled</CardTitle>
-            <UserCheck className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-sm font-medium">Negative Sentiment</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.in_progress_count || 0} / {(stats?.total_posts || 0) - (stats?.has_reply_count || 0)}
+              {stats?.negative_percentage?.toFixed(1) || 0}%
             </div>
             <p className="text-xs text-muted-foreground">
-              checked out of needing response
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push("/posts?analyzed=false")}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Not Analyzed</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.not_analyzed_count || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              awaiting analysis
+              of analyzed
             </p>
           </CardContent>
         </Card>
@@ -227,6 +223,16 @@ export function Dashboard() {
                       Source scraped: {new Date(scrapeStatus.last_sync_source_scraped_at).toLocaleString()}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Analysis status - automated process */}
+              {stats && stats.not_analyzed_count > 0 && (
+                <div className="text-sm border-t pt-2">
+                  <p className="font-medium">Analysis Queue</p>
+                  <p className="text-muted-foreground">
+                    {stats.not_analyzed_count} posts awaiting analysis
+                  </p>
                 </div>
               )}
 

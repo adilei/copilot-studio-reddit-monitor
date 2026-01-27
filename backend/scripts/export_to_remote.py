@@ -88,11 +88,24 @@ def get_db_session():
     return Session()
 
 
-def export_posts(db, since: datetime | None = None) -> list[dict]:
-    """Export posts from the database."""
+def export_posts(db, since: datetime | None = None, post_ids: set[str] | None = None) -> list[dict]:
+    """Export posts from the database.
+
+    If since is provided, exports posts that were created OR scraped since that time.
+    If post_ids is provided, also includes those specific posts.
+    """
     query = db.query(Post)
-    if since:
-        query = query.filter(Post.created_utc >= since)
+    if since or post_ids:
+        from sqlalchemy import or_
+        conditions = []
+        if since:
+            # Include posts created or updated since the cutoff
+            conditions.append(Post.created_utc >= since)
+            conditions.append(Post.scraped_at >= since)
+        if post_ids:
+            # Include specific posts (e.g., posts with new replies)
+            conditions.append(Post.id.in_(post_ids))
+        query = query.filter(or_(*conditions))
 
     posts = query.order_by(Post.created_utc.desc()).all()
 
@@ -128,16 +141,20 @@ def export_contributors(db) -> list[dict]:
     ]
 
 
-def export_replies(db, post_ids: set[str] | None = None) -> list[dict]:
-    """Export contributor replies from the database."""
+def export_replies(db, since: datetime | None = None) -> tuple[list[dict], set[str]]:
+    """Export contributor replies from the database.
+
+    If since is provided, exports replies created since that time.
+    Returns (replies_list, post_ids_with_new_replies).
+    """
     query = db.query(ContributorReply).join(Contributor)
 
-    if post_ids:
-        query = query.filter(ContributorReply.post_id.in_(post_ids))
+    if since:
+        query = query.filter(ContributorReply.replied_at >= since)
 
     replies = query.all()
 
-    return [
+    replies_list = [
         {
             "post_id": reply.post_id,
             "contributor_handle": reply.contributor.reddit_handle,
@@ -146,6 +163,11 @@ def export_replies(db, post_ids: set[str] | None = None) -> list[dict]:
         }
         for reply in replies
     ]
+
+    # Return the post IDs so we can ensure those posts are also exported
+    post_ids = {reply.post_id for reply in replies}
+
+    return replies_list, post_ids
 
 
 def main():
@@ -170,19 +192,21 @@ def main():
         # Export data
         print("Exporting data from local database...")
 
-        posts = export_posts(db, since)
+        # Export replies first to get post IDs that need to be included
+        replies = None
+        posts_with_new_replies = set()
+        if not args.no_replies:
+            replies, posts_with_new_replies = export_replies(db, since)
+            print(f"  Contributor replies: {len(replies)}")
+
+        # Export posts - include posts with new replies even if the post is older
+        posts = export_posts(db, since, posts_with_new_replies if since else None)
         print(f"  Posts: {len(posts)}")
 
         contributors = None
         if not args.no_contributors:
             contributors = export_contributors(db)
             print(f"  Contributors: {len(contributors)}")
-
-        replies = None
-        if not args.no_replies:
-            post_ids = {p["id"] for p in posts} if since else None
-            replies = export_replies(db, post_ids)
-            print(f"  Contributor replies: {len(replies)}")
 
         # Build payload
         payload = {

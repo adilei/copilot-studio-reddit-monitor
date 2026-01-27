@@ -35,3 +35,5 @@ backend/deploy.zip
 test-results/
 playwright-report/
 playwright/.cache/
+*.local.md
+*.local.sh

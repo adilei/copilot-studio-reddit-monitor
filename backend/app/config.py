@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     azure_openai_endpoint: str = ""
     azure_openai_key: str = ""
     azure_openai_deployment: str = "gpt-4o"
+    azure_openai_auth_type: Literal["key", "managed_identity"] = "key"
 
     # Database
     database_url: str = "sqlite:///./data/reddit_monitor.db"

@@ -209,3 +209,19 @@ See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.
 
 ### Virtual Environment
 - Backend venv is at `backend/venv/` (not `.venv`)
+
+### Azure Deployment
+
+See `DEPLOY_GUIDE.md` for complete deployment documentation.
+
+**EMEA Deployment (January 2026):**
+| Component | URL |
+|-----------|-----|
+| Frontend | https://thankful-tree-0325e0003.1.azurestaticapps.net |
+| Backend | https://mcs-social-api-emea.azurewebsites.net |
+| API Docs | https://mcs-social-api-emea.azurewebsites.net/docs |
+
+**Key notes:**
+- Uses managed identity auth for Azure OpenAI (set `AZURE_OPENAI_AUTH_TYPE=managed_identity`)
+- Azure OpenAI in East US (Sweden Central had outage)
+- Static Web App in West Europe (not available in Sweden Central)

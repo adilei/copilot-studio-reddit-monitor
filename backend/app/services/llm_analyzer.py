@@ -123,11 +123,24 @@ class LLMAnalyzer:
         try:
             from openai import AsyncAzureOpenAI
 
-            client = AsyncAzureOpenAI(
-                azure_endpoint=self.settings.azure_openai_endpoint,
-                api_key=self.settings.azure_openai_key,
-                api_version="2024-02-01",
-            )
+            if self.settings.azure_openai_auth_type == "managed_identity":
+                from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
+                credential = DefaultAzureCredential()
+                token_provider = get_bearer_token_provider(
+                    credential, "https://cognitiveservices.azure.com/.default"
+                )
+                client = AsyncAzureOpenAI(
+                    azure_endpoint=self.settings.azure_openai_endpoint,
+                    azure_ad_token_provider=token_provider,
+                    api_version="2024-02-01",
+                )
+            else:
+                client = AsyncAzureOpenAI(
+                    azure_endpoint=self.settings.azure_openai_endpoint,
+                    api_key=self.settings.azure_openai_key,
+                    api_version="2024-02-01",
+                )
 
             response = await client.chat.completions.create(
                 model=self.settings.azure_openai_deployment,

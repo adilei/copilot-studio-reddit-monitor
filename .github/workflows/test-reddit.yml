@@ -1,0 +1,27 @@
+name: Test Reddit Access
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Reddit API
+        run: |
+          echo "Testing Reddit access from GitHub Actions..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "User-Agent: CopilotStudioMonitor/1.0" \
+            "https://www.reddit.com/r/CopilotStudio/new.json?limit=1")
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo ""
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Reddit access successful!"
+            echo ""
+            echo "Fetching one post..."
+            curl -s -H "User-Agent: CopilotStudioMonitor/1.0" \
+              "https://www.reddit.com/r/CopilotStudio/new.json?limit=1" | head -c 500
+          else
+            echo "❌ Reddit access failed with status $HTTP_CODE"
+            exit 1
+          fi

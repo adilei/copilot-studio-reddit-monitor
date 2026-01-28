@@ -245,3 +245,165 @@ export async function getWarningPosts(limit?: number): Promise<WarningPost[]> {
   const query = limit ? `?limit=${limit}` : ""
   return fetchApi<WarningPost[]>(`/api/analytics/warnings${query}`)
 }
+
+// Product Areas
+export interface ProductArea {
+  id: number
+  name: string
+  description: string | null
+  display_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  theme_count: number
+}
+
+export async function getProductAreas(
+  includeInactive?: boolean
+): Promise<ProductArea[]> {
+  const query = includeInactive ? "?include_inactive=true" : ""
+  return fetchApi<ProductArea[]>(`/api/product-areas${query}`)
+}
+
+export async function createProductArea(data: {
+  name: string
+  description?: string
+  display_order?: number
+}): Promise<ProductArea> {
+  return fetchApi<ProductArea>("/api/product-areas", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateProductArea(
+  id: number,
+  data: {
+    name?: string
+    description?: string
+    display_order?: number
+    is_active?: boolean
+  }
+): Promise<ProductArea> {
+  return fetchApi<ProductArea>(`/api/product-areas/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteProductArea(id: number): Promise<void> {
+  await fetchApi(`/api/product-areas/${id}`, { method: "DELETE" })
+}
+
+// Clustering
+export interface PainTheme {
+  id: number
+  name: string
+  description: string | null
+  severity: number
+  product_area_id: number | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  post_count: number
+  product_area_name: string | null
+}
+
+export interface ClusteringRun {
+  id: number
+  started_at: string
+  completed_at: string | null
+  status: "running" | "completed" | "failed"
+  run_type: "full" | "incremental"
+  posts_processed: number
+  themes_created: number
+  themes_updated: number
+  error_message: string | null
+}
+
+export interface HeatmapCell {
+  theme_id: number
+  theme_name: string
+  severity: number
+  post_count: number
+  product_area_id: number | null
+  product_area_name: string | null
+}
+
+export interface HeatmapRow {
+  product_area_id: number | null
+  product_area_name: string
+  themes: HeatmapCell[]
+  total_posts: number
+}
+
+export interface HeatmapResponse {
+  rows: HeatmapRow[]
+  total_themes: number
+  total_posts: number
+  last_clustering_run: ClusteringRun | null
+}
+
+export interface ThemePostSummary {
+  id: string
+  title: string
+  author: string
+  created_utc: string
+  sentiment: "positive" | "neutral" | "negative" | null
+  confidence: number
+}
+
+export interface ThemeDetail extends PainTheme {
+  posts: ThemePostSummary[]
+}
+
+export async function triggerClusteringRun(
+  runType: "full" | "incremental"
+): Promise<ClusteringRun> {
+  return fetchApi<ClusteringRun>("/api/clustering/run", {
+    method: "POST",
+    body: JSON.stringify({ run_type: runType }),
+  })
+}
+
+export async function getClusteringStatus(): Promise<ClusteringRun | null> {
+  return fetchApi<ClusteringRun | null>("/api/clustering/status")
+}
+
+export async function getThemes(params?: {
+  product_area_id?: number
+  include_inactive?: boolean
+}): Promise<PainTheme[]> {
+  const searchParams = new URLSearchParams()
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) searchParams.append(key, String(value))
+    })
+  }
+  const query = searchParams.toString()
+  return fetchApi<PainTheme[]>(`/api/clustering/themes${query ? `?${query}` : ""}`)
+}
+
+export async function getThemeDetail(themeId: number): Promise<ThemeDetail> {
+  return fetchApi<ThemeDetail>(`/api/clustering/themes/${themeId}`)
+}
+
+export async function updateTheme(
+  themeId: number,
+  data: {
+    name?: string
+    description?: string
+    severity?: number
+    product_area_id?: number
+    is_active?: boolean
+  }
+): Promise<PainTheme> {
+  return fetchApi<PainTheme>(`/api/clustering/themes/${themeId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function getHeatmapData(): Promise<HeatmapResponse> {
+  return fetchApi<HeatmapResponse>("/api/clustering/heatmap")
+}

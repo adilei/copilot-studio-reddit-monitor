@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, FileText, Users, Home } from "lucide-react"
+import { BarChart3, FileText, Users, Home, Grid3X3, Layers } from "lucide-react"
 
 export function Sidebar() {
   return (
@@ -26,6 +26,13 @@ export function Sidebar() {
           Posts
         </Link>
         <Link
+          href="/clustering"
+          className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+        >
+          <Grid3X3 className="h-4 w-4" />
+          Themes
+        </Link>
+        <Link
           href="/contributors"
           className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
         >
@@ -38,6 +45,13 @@ export function Sidebar() {
         >
           <BarChart3 className="h-4 w-4" />
           Analytics
+        </Link>
+        <Link
+          href="/product-areas"
+          className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+        >
+          <Layers className="h-4 w-4" />
+          Product Areas
         </Link>
       </nav>
     </aside>

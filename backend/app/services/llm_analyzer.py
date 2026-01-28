@@ -38,8 +38,7 @@ Provide a JSON response:
     "summary": "A 2-3 sentence summary",
     "sentiment": "positive" | "neutral" | "negative",
     "sentiment_score": <-1.0 to 1.0>,
-    "is_warning": true | false,
-    "key_issues": ["list", "of", "issues"] or null
+    "is_warning": true | false
 }}
 
 Respond ONLY with the JSON object."""

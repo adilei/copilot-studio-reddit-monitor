@@ -40,6 +40,15 @@ class SchedulerService:
             replace_existing=True,
         )
 
+        # Add clustering job - runs every 6 hours to assign new posts to themes
+        self.scheduler.add_job(
+            self._run_clustering_job,
+            trigger=IntervalTrigger(hours=6),
+            id="clustering_incremental",
+            name="Incremental Clustering",
+            replace_existing=True,
+        )
+
         self.scheduler.start()
         self._is_started = True
         logger.info(
@@ -91,6 +100,31 @@ class SchedulerService:
 
         except Exception as e:
             logger.error(f"Analysis job failed: {str(e)}")
+        finally:
+            db.close()
+
+    def _run_clustering_job(self):
+        """Run incremental clustering to assign new posts to themes."""
+        from app.services.clustering_service import clustering_service
+        from app.models import ClusteringRun
+
+        db = SessionLocal()
+        try:
+            # Create clustering run record
+            clustering_run = ClusteringRun(
+                run_type="incremental",
+                status="running",
+            )
+            db.add(clustering_run)
+            db.commit()
+            db.refresh(clustering_run)
+
+            # Run clustering
+            asyncio.run(clustering_service.run_clustering(clustering_run.id, "incremental"))
+            logger.info("Scheduled incremental clustering completed")
+
+        except Exception as e:
+            logger.error(f"Scheduled clustering failed: {str(e)}")
         finally:
             db.close()
 

@@ -6,7 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from app.database import init_db
-from app.routers import posts_router, contributors_router, analytics_router, scraper_router, sync_router
+from app.routers import (
+    posts_router,
+    contributors_router,
+    analytics_router,
+    scraper_router,
+    sync_router,
+    product_areas_router,
+    clustering_router,
+)
 from app.services.scheduler import scheduler_service
 
 # Configure logging
@@ -62,6 +70,8 @@ app.include_router(contributors_router)
 app.include_router(analytics_router)
 app.include_router(scraper_router)
 app.include_router(sync_router)
+app.include_router(product_areas_router)
+app.include_router(clustering_router)
 
 
 @app.get("/")

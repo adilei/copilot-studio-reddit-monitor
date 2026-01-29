@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from app.database import get_db
 from app.models import Post, Contributor, ContributorReply
 from app.schemas import SyncRequest, SyncResponse
 from app.services.reddit_scraper import scraper
+from app.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,11 @@ router = APIRouter(prefix="/api/sync", tags=["sync"])
 
 
 @router.post("", response_model=SyncResponse)
-def sync_data(request: SyncRequest, db: Session = Depends(get_db)):
+def sync_data(
+    request: SyncRequest,
+    db: Session = Depends(get_db),
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
     """
     Sync posts, contributors, and contributor replies from a remote source.
 

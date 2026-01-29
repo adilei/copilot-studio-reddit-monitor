@@ -1,3 +1,5 @@
+import { getTokenGetter } from "./token-store"
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 // Types
@@ -94,12 +96,23 @@ async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
+  // Get auth token if available
+  const tokenGetter = getTokenGetter()
+  const token = tokenGetter ? await tokenGetter() : null
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string>),
+  }
+
+  // Add Authorization header if we have a token
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
+  }
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   })
 
   if (!response.ok) {

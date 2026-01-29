@@ -14,6 +14,7 @@ from app.routers import (
     sync_router,
     product_areas_router,
     clustering_router,
+    auth_router,
 )
 from app.services.scheduler import scheduler_service
 
@@ -65,6 +66,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(posts_router)
 app.include_router(contributors_router)
 app.include_router(analytics_router)

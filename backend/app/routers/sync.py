@@ -116,6 +116,9 @@ def sync_data(
                 db.add(post)
                 posts_created += 1
 
+        # Flush posts to session so they're available for reply FK validation
+        db.flush()
+
         # 3. Process contributor replies
         if request.contributor_replies:
             for reply_data in request.contributor_replies:

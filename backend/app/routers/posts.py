@@ -15,8 +15,13 @@ from app.schemas import (
     ContributorReplyResponse,
 )
 from app.services.llm_analyzer import analyzer
+from app.auth import get_current_user
 
-router = APIRouter(prefix="/api/posts", tags=["posts"])
+router = APIRouter(
+    prefix="/api/posts",
+    tags=["posts"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("", response_model=list[PostResponse])

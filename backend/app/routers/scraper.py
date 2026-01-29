@@ -6,8 +6,13 @@ from app.database import get_db, SessionLocal
 from app.schemas import ScrapeRequest, ScrapeStatus
 from app.services.reddit_scraper import scraper
 from app.models import Post, Analysis
+from app.auth import get_current_user
 
-router = APIRouter(prefix="/api/scrape", tags=["scraper"])
+router = APIRouter(
+    prefix="/api/scrape",
+    tags=["scraper"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def run_scrape(

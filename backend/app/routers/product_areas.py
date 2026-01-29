@@ -9,8 +9,13 @@ from app.schemas import (
     ProductAreaUpdate,
     ProductAreaResponse,
 )
+from app.auth import get_current_user
 
-router = APIRouter(prefix="/api/product-areas", tags=["product-areas"])
+router = APIRouter(
+    prefix="/api/product-areas",
+    tags=["product-areas"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("", response_model=list[ProductAreaResponse])

@@ -15,8 +15,13 @@ from app.schemas import (
     ThemePostSummary,
     ThemeDetailResponse,
 )
+from app.auth import get_current_user
 
-router = APIRouter(prefix="/api/clustering", tags=["clustering"])
+router = APIRouter(
+    prefix="/api/clustering",
+    tags=["clustering"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.post("/run", response_model=ClusteringRunResponse)

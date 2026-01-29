@@ -95,6 +95,7 @@ pytest tests/test_specific.py -v  # Run single file
 - Only scrapes r/CopilotStudio (not search-based)
 - Checks for contributor replies in comments
 - Auto-triggers sentiment analysis after scraping
+- **GitHub Actions scraper**: Runs every 6 hours from GitHub Actions to avoid Microsoft IP blocks (see below)
 
 ### Sentiment Analysis
 - Prompt is optimized for Copilot Studio context
@@ -155,6 +156,20 @@ Backend allows origins: localhost:3000, 3001, 3002, and 127.0.0.1 variants (Next
 - `GET /api/analytics/overview` - Dashboard stats
 - `GET /api/analytics/sentiment` - Sentiment trends over time
 
+### Product Areas
+- `GET /api/product-areas` - List product areas
+- `POST /api/product-areas` - Create product area
+- `PUT /api/product-areas/{id}` - Update product area
+- `DELETE /api/product-areas/{id}` - Deactivate product area (soft delete)
+
+### Clustering
+- `POST /api/clustering/run` - Trigger clustering (full or incremental)
+- `GET /api/clustering/status` - Get latest clustering run status
+- `GET /api/clustering/themes` - List discovered pain themes
+- `GET /api/clustering/themes/{id}` - Get theme with associated posts
+- `PUT /api/clustering/themes/{id}` - Update theme (name, severity, product area)
+- `GET /api/clustering/heatmap` - Get heatmap data (product area x theme x post count)
+
 ## Database Schema
 SQLite database at `backend/data/reddit_monitor.db`
 
@@ -163,11 +178,16 @@ Tables:
 - `analyses` - LLM analysis results (multiple per post possible)
 - `contributors` - Microsoft contributor handles to track
 - `contributor_replies` - Tracks when contributors reply to posts
+- `product_areas` - Predefined product categories (seeded with 12 defaults)
+- `pain_themes` - LLM-discovered pain themes linked to product areas
+- `post_theme_mappings` - Links posts to discovered themes (many-to-many)
+- `clustering_runs` - Audit trail for clustering operations
 
 ## Background Jobs
 APScheduler runs:
 - Scrape job: Every hour
 - Analysis job: Every 5 minutes (analyzes pending posts)
+- Clustering job: Every 6 hours (incremental clustering to assign new posts to themes)
 
 ## Development Workflow
 
@@ -211,9 +231,25 @@ See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.
 ### Virtual Environment
 - Backend venv is at `backend/venv/` (not `.venv`)
 
+### Pain Point Clustering Feature
+- LLM analyzes posts in batches (~20 posts) to discover recurring themes
+- Two-level hierarchy: Product Areas (predefined) → Pain Themes (LLM-discovered)
+- Heatmap visualization: size = post count, color = severity (1-5)
+- Two run types: "full" (re-cluster all posts) and "incremental" (assign new posts to existing themes)
+- Scheduled incremental clustering runs every 6 hours
+- `key_issues` was removed from sentiment analysis (made redundant by clustering)
+- Product areas seeded on first startup with 12 Copilot Studio categories
+
 ### Azure Deployment
 
-See `DEPLOY_GUIDE.md` for complete deployment documentation.
+See `DEPLOY_GUIDE.md` for complete deployment documentation including:
+- Resource setup and configuration
+- Backend/frontend deployment commands
+- Managed identity authentication for Azure OpenAI
+- Azure AD authentication setup
+- SQLite schema migrations
+- Static Web App environments (preview vs production)
+- Troubleshooting guide
 
 **EMEA Deployment (January 2026):**
 | Component | URL |
@@ -222,7 +258,35 @@ See `DEPLOY_GUIDE.md` for complete deployment documentation.
 | Backend | https://mcs-social-api-emea.azurewebsites.net |
 | API Docs | https://mcs-social-api-emea.azurewebsites.net/docs |
 
-**Key notes:**
-- Uses managed identity auth for Azure OpenAI (set `AZURE_OPENAI_AUTH_TYPE=managed_identity`)
-- Azure OpenAI in East US (Sweden Central had outage)
-- Static Web App in West Europe (not available in Sweden Central)
+**Quick tips:**
+- SQLAlchemy `create_all()` won't add columns to existing tables—use `run_migrations()` in `database.py`
+- Next.js `NEXT_PUBLIC_*` vars must be set at BUILD time, not via Azure app settings
+- SWA CLI defaults to preview environment; use `--env production` for prod deploys
+- Deploy auth to new env: set `AUTH_ENABLED=false` first, configure aliases via API, then enable
+
+### GitHub Actions Scraper
+
+Reddit blocks requests from Microsoft/corporate IP ranges (403 errors). GitHub Actions runners have non-Microsoft IPs and are used as an interim solution.
+
+**Workflows:**
+- `.github/workflows/test-reddit.yml` - Manual test to verify Reddit access from GitHub Actions
+- `.github/workflows/scrape-reddit.yml` - Scheduled scraper (every 6 hours)
+
+**Setup - GitHub Secrets required:**
+```
+AZURE_PRIMARY_URL=https://mcs-social-api-amafe4bmc8b5cnf9.swedencentral-01.azurewebsites.net
+AZURE_EMEA_URL=https://mcs-social-api-emea.azurewebsites.net
+```
+
+To configure:
+1. Go to repo → Settings → Secrets and variables → Actions
+2. Add both secrets with the Azure backend URLs
+
+**How it works:**
+1. GitHub Actions runs on schedule (0:00, 6:00, 12:00, 18:00 UTC)
+2. `backend/scripts/github_scrape.py` scrapes Reddit public JSON API
+3. Script POSTs scraped posts to both Azure endpoints via `/api/sync`
+4. Azure backends analyze posts and check for contributor replies
+
+**Manual trigger:**
+- Go to Actions tab → "Scrape Reddit" or "Test Reddit Access" → Run workflow

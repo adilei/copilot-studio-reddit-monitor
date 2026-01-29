@@ -6,8 +6,13 @@ from datetime import datetime, timedelta
 from app.database import get_db
 from app.models import Post, Analysis, ContributorReply
 from app.schemas import OverviewStats, SentimentTrend
+from app.auth import get_current_user
 
-router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+router = APIRouter(
+    prefix="/api/analytics",
+    tags=["analytics"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("/overview", response_model=OverviewStats)

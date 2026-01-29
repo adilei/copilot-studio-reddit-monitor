@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react"
 import { getContributors, type Contributor } from "./api"
+import { useAuth } from "./auth-context"
 
 const STORAGE_KEY = "selected_contributor_id"
 
@@ -16,6 +17,7 @@ interface ContributorContextType {
   contributors: Contributor[]
   setContributor: (contributor: Contributor | null) => void
   loading: boolean
+  isAutoLinked: boolean
 }
 
 const ContributorContext = createContext<ContributorContextType | undefined>(
@@ -23,9 +25,11 @@ const ContributorContext = createContext<ContributorContextType | undefined>(
 )
 
 export function ContributorProvider({ children }: { children: ReactNode }) {
+  const { user, isAuthenticated } = useAuth()
   const [contributor, setContributorState] = useState<Contributor | null>(null)
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAutoLinked, setIsAutoLinked] = useState(false)
 
   useEffect(() => {
     async function loadContributors() {
@@ -33,12 +37,25 @@ export function ContributorProvider({ children }: { children: ReactNode }) {
         const data = await getContributors()
         setContributors(data)
 
-        // Load saved contributor from localStorage
-        const savedId = localStorage.getItem(STORAGE_KEY)
-        if (savedId) {
-          const saved = data.find((c) => c.id === parseInt(savedId, 10))
-          if (saved) {
-            setContributorState(saved)
+        // If user is authenticated and has a linked contributor, auto-select it
+        if (isAuthenticated && user?.contributorId) {
+          const linked = data.find((c) => c.id === user.contributorId)
+          if (linked) {
+            setContributorState(linked)
+            setIsAutoLinked(true)
+            setLoading(false)
+            return
+          }
+        }
+
+        // Otherwise, load saved contributor from localStorage (for non-auth mode)
+        if (!isAuthenticated) {
+          const savedId = localStorage.getItem(STORAGE_KEY)
+          if (savedId) {
+            const saved = data.find((c) => c.id === parseInt(savedId, 10))
+            if (saved) {
+              setContributorState(saved)
+            }
           }
         }
       } catch (error) {
@@ -49,9 +66,12 @@ export function ContributorProvider({ children }: { children: ReactNode }) {
     }
 
     loadContributors()
-  }, [])
+  }, [isAuthenticated, user?.contributorId])
 
   function setContributor(contributor: Contributor | null) {
+    // Don't allow changing if auto-linked via auth
+    if (isAutoLinked) return
+
     setContributorState(contributor)
     if (contributor) {
       localStorage.setItem(STORAGE_KEY, contributor.id.toString())
@@ -62,7 +82,7 @@ export function ContributorProvider({ children }: { children: ReactNode }) {
 
   return (
     <ContributorContext.Provider
-      value={{ contributor, contributors, setContributor, loading }}
+      value={{ contributor, contributors, setContributor, loading, isAutoLinked }}
     >
       {children}
     </ContributorContext.Provider>

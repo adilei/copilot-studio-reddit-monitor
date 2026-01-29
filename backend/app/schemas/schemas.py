@@ -90,6 +90,7 @@ class AnalysisBase(BaseModel):
 class ContributorBase(BaseModel):
     name: str
     reddit_handle: str
+    microsoft_alias: str | None = None  # e.g., 'johndoe' from johndoe@microsoft.com
     role: str | None = None
 
 

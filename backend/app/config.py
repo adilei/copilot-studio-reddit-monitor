@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./data/reddit_monitor.db"
 
+    # Azure AD Auth
+    auth_enabled: bool = False  # Set to True to enforce authentication
+    azure_ad_tenant_id: str = ""
+    azure_ad_client_id: str = ""
+
     # Scheduler
     scrape_interval_hours: int = 1
 

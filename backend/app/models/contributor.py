@@ -11,6 +11,7 @@ class Contributor(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     reddit_handle = Column(String, unique=True, nullable=False, index=True)
+    microsoft_alias = Column(String, unique=True, nullable=True, index=True)  # e.g., 'johndoe' from johndoe@microsoft.com
     role = Column(String)  # PM, Engineer, etc.
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -7,7 +7,7 @@ export function Sidebar() {
   return (
     <aside className="w-64 border-r bg-card">
       <div className="p-6">
-        <h1 className="text-lg font-semibold">Reddit Monitor</h1>
+        <h1 className="text-lg font-semibold">Social Monitor</h1>
         <p className="text-sm text-muted-foreground">Copilot Studio</p>
       </div>
       <nav className="px-4 space-y-2">

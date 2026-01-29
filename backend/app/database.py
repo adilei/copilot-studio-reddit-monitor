@@ -36,7 +36,24 @@ def init_db():
     """Initialize database tables."""
     from app.models import post, contributor, analysis, clustering  # noqa: F401
     Base.metadata.create_all(bind=engine)
+    run_migrations()
     seed_product_areas()
+
+
+def run_migrations():
+    """Run manual migrations for schema changes not handled by create_all."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # Check if microsoft_alias column exists on contributors table
+        result = conn.execute(text("PRAGMA table_info(contributors)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        if "microsoft_alias" not in columns:
+            conn.execute(
+                text("ALTER TABLE contributors ADD COLUMN microsoft_alias VARCHAR")
+            )
+            conn.commit()
 
 
 def seed_product_areas():

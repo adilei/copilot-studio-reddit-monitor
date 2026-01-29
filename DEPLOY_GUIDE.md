@@ -683,3 +683,111 @@ cd backend
 source venv/bin/activate
 python scripts/export_to_remote.py https://mcs-social-api-emea.azurewebsites.net
 ```
+
+---
+
+## Azure AD Authentication
+
+The app supports Azure AD authentication via MSAL (frontend) and JWT validation (backend).
+
+### App Registration Setup
+
+1. Create an app registration in Entra ID (Azure AD)
+2. Configure **Authentication** → **Platform configurations** → **Single-page application**:
+   - Redirect URIs: `http://localhost:3000`, `https://<your-static-web-app>.azurestaticapps.net`
+3. Note the **Application (client) ID** and **Directory (tenant) ID**
+
+### Backend Configuration
+
+Set these app settings on the App Service:
+
+| Variable | Value |
+|----------|-------|
+| `AUTH_ENABLED` | `true` |
+| `AZURE_AD_TENANT_ID` | Your tenant ID |
+| `AZURE_AD_CLIENT_ID` | Your app registration client ID |
+
+```bash
+az webapp config appsettings set --name <app> --resource-group <rg> \
+  --settings AUTH_ENABLED=true \
+  AZURE_AD_TENANT_ID=<tenant-id> \
+  AZURE_AD_CLIENT_ID=<client-id>
+```
+
+### Frontend Configuration
+
+**CRITICAL:** Next.js `NEXT_PUBLIC_*` variables are baked in at BUILD time. Setting them via Azure app settings does NOT work.
+
+Build the frontend with auth env vars:
+```bash
+cd frontend
+NEXT_PUBLIC_AUTH_ENABLED=true \
+NEXT_PUBLIC_AZURE_AD_CLIENT_ID=<client-id> \
+NEXT_PUBLIC_AZURE_AD_TENANT_ID=<tenant-id> \
+NEXT_PUBLIC_API_URL=https://<backend>.azurewebsites.net \
+npm run build
+
+# Then deploy
+npx @azure/static-web-apps-cli deploy out --deployment-token "<token>" --env production
+```
+
+### Deploying Auth to a New Environment
+
+If the database already has contributors but no `microsoft_alias` values set, deploying with `AUTH_ENABLED=true` will lock you out (you won't be linked to a contributor).
+
+**Safe deployment sequence:**
+1. Deploy backend with `AUTH_ENABLED=false`
+2. Set your contributor's `microsoft_alias` via API:
+   ```bash
+   curl -X PATCH https://<backend>/api/contributors/<id> \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Your Name", "reddit_handle": "your_handle", "microsoft_alias": "your_alias"}'
+   ```
+3. Enable auth: `az webapp config appsettings set ... --settings AUTH_ENABLED=true`
+4. Build and deploy frontend with auth env vars
+5. Add the frontend URL to app registration redirect URIs
+
+### Static Web App Environments
+
+- **Production**: `https://<app>.1.azurestaticapps.net` - deploy with `--env production`
+- **Preview**: `https://<app>-preview.westeurope.1.azurestaticapps.net` - default without `--env` flag
+
+If you deploy without `--env production`, it goes to preview. Both URLs need to be in the app registration redirect URIs if you want auth to work on both.
+
+---
+
+## SQLite Schema Migrations
+
+SQLAlchemy's `Base.metadata.create_all()` only creates new tables—it does NOT add columns to existing tables.
+
+### Manual Migration Function
+
+The backend has a `run_migrations()` function in `database.py` that runs at startup:
+
+```python
+def run_migrations():
+    """Run manual migrations for schema changes not handled by create_all."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # Check if column exists
+        result = conn.execute(text("PRAGMA table_info(contributors)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        if "microsoft_alias" not in columns:
+            conn.execute(text("ALTER TABLE contributors ADD COLUMN microsoft_alias VARCHAR"))
+            conn.commit()
+```
+
+### When You Add a New Column
+
+1. Add the column to the SQLAlchemy model
+2. Add an `ALTER TABLE` migration to `run_migrations()` in `database.py`
+3. Redeploy the backend—the migration runs automatically on startup
+
+### Debugging "Internal Server Error"
+
+If an endpoint returns 500 after adding a new column, the database likely doesn't have that column:
+1. Check Azure logs: `az webapp log download --name <app> --resource-group <rg> --log-file logs.zip`
+2. Look for SQLAlchemy errors in the docker logs
+3. Add the missing migration and redeploy

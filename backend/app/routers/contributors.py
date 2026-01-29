@@ -5,8 +5,13 @@ from sqlalchemy import func
 from app.database import get_db
 from app.models import Contributor, ContributorReply
 from app.schemas import ContributorCreate, ContributorResponse
+from app.auth import get_current_user
 
-router = APIRouter(prefix="/api/contributors", tags=["contributors"])
+router = APIRouter(
+    prefix="/api/contributors",
+    tags=["contributors"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("", response_model=list[ContributorResponse])

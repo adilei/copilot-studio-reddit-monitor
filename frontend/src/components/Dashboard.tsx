@@ -14,9 +14,11 @@ import {
 import { FileText, AlertTriangle, CheckCircle, Clock, AlertCircle, UserCheck } from "lucide-react"
 import { formatRelativeTime } from "@/lib/utils"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 
 export function Dashboard() {
   const router = useRouter()
+  const { isAuthenticated } = useAuth()
   const [stats, setStats] = useState<OverviewStats | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus | null>(null)
   const [warningPosts, setWarningPosts] = useState<WarningPost[]>([])
@@ -24,7 +26,7 @@ export function Dashboard() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [isAuthenticated])
 
   // Auto-refresh while scraping is running
   useEffect(() => {

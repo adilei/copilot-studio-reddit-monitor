@@ -35,6 +35,7 @@ def list_contributors(
                 id=contrib.id,
                 name=contrib.name,
                 reddit_handle=contrib.reddit_handle,
+                microsoft_alias=contrib.microsoft_alias,
                 role=contrib.role,
                 active=contrib.active,
                 created_at=contrib.created_at,
@@ -65,6 +66,7 @@ def create_contributor(
     db_contributor = Contributor(
         name=contributor.name,
         reddit_handle=contributor.reddit_handle,
+        microsoft_alias=contributor.microsoft_alias,
         role=contributor.role,
     )
     db.add(db_contributor)
@@ -75,6 +77,7 @@ def create_contributor(
         id=db_contributor.id,
         name=db_contributor.name,
         reddit_handle=db_contributor.reddit_handle,
+        microsoft_alias=db_contributor.microsoft_alias,
         role=db_contributor.role,
         active=db_contributor.active,
         created_at=db_contributor.created_at,
@@ -99,6 +102,7 @@ def get_contributor(contributor_id: int, db: Session = Depends(get_db)):
         id=contributor.id,
         name=contributor.name,
         reddit_handle=contributor.reddit_handle,
+        microsoft_alias=contributor.microsoft_alias,
         role=contributor.role,
         active=contributor.active,
         created_at=contributor.created_at,
@@ -120,6 +124,7 @@ def update_contributor(
     contributor.name = updates.name
     contributor.reddit_handle = updates.reddit_handle
     contributor.role = updates.role
+    contributor.microsoft_alias = updates.microsoft_alias
     db.commit()
     db.refresh(contributor)
 
@@ -133,6 +138,7 @@ def update_contributor(
         id=contributor.id,
         name=contributor.name,
         reddit_handle=contributor.reddit_handle,
+        microsoft_alias=contributor.microsoft_alias,
         role=contributor.role,
         active=contributor.active,
         created_at=contributor.created_at,

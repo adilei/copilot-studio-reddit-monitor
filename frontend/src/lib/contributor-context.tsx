@@ -25,13 +25,16 @@ const ContributorContext = createContext<ContributorContextType | undefined>(
 )
 
 export function ContributorProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [contributor, setContributorState] = useState<Contributor | null>(null)
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
   const [isAutoLinked, setIsAutoLinked] = useState(false)
 
   useEffect(() => {
+    // Wait for auth to be fully initialized before fetching contributors
+    if (authLoading) return
+
     async function loadContributors() {
       try {
         const data = await getContributors()
@@ -66,7 +69,7 @@ export function ContributorProvider({ children }: { children: ReactNode }) {
     }
 
     loadContributors()
-  }, [isAuthenticated, user?.contributorId])
+  }, [isAuthenticated, authLoading, user?.contributorId])
 
   function setContributor(contributor: Contributor | null) {
     // Don't allow changing if auto-linked via auth

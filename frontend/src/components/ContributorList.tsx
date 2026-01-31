@@ -11,7 +11,8 @@ import {
   type Contributor,
 } from "@/lib/api"
 import { formatDate } from "@/lib/utils"
-import { Plus, Trash2, User } from "lucide-react"
+import { Plus, Trash2, User, BarChart3 } from "lucide-react"
+import Link from "next/link"
 
 interface ContributorListProps {
   contributors: Contributor[]
@@ -135,7 +136,12 @@ export function ContributorList({ contributors, onUpdate }: ContributorListProps
                       <User className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">{contributor.name}</p>
+                      <Link
+                        href={`/contributors/detail?id=${contributor.id}`}
+                        className="font-medium hover:text-primary hover:underline"
+                      >
+                        {contributor.name}
+                      </Link>
                       <p className="text-sm text-muted-foreground">
                         u/{contributor.reddit_handle}
                       </p>
@@ -150,11 +156,20 @@ export function ContributorList({ contributors, onUpdate }: ContributorListProps
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="mt-4 flex items-center gap-2">
-                  {contributor.role && (
-                    <Badge variant="secondary">{contributor.role}</Badge>
-                  )}
-                  <Badge variant="outline">{contributor.reply_count} replies</Badge>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {contributor.role && (
+                      <Badge variant="secondary">{contributor.role}</Badge>
+                    )}
+                    <Badge variant="outline">{contributor.reply_count} replies</Badge>
+                  </div>
+                  <Link
+                    href={`/contributors/detail?id=${contributor.id}`}
+                    className="text-muted-foreground hover:text-primary"
+                    title="View activity"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                  </Link>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
                   Added {formatDate(contributor.created_at)}

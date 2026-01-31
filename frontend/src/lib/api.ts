@@ -224,6 +224,34 @@ export async function deleteContributor(id: number): Promise<void> {
   await fetchApi(`/api/contributors/${id}`, { method: "DELETE" })
 }
 
+export interface ContributorActivity {
+  contributor: {
+    id: number
+    name: string
+    reddit_handle: string
+  }
+  activity: { date: string; count: number }[]
+  summary: {
+    replies_today: number
+    replies_week: number
+    replies_month: number
+    replies_total: number
+  }
+  recent_posts: {
+    post_id: string
+    title: string
+    replied_at: string
+  }[]
+}
+
+export async function getContributorActivity(
+  id: number,
+  days?: number
+): Promise<ContributorActivity> {
+  const query = days ? `?days=${days}` : ""
+  return fetchApi<ContributorActivity>(`/api/contributors/${id}/activity${query}`)
+}
+
 // Analytics
 export async function getOverviewStats(): Promise<OverviewStats> {
   return fetchApi<OverviewStats>("/api/analytics/overview")

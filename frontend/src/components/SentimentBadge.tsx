@@ -1,6 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
+import { Flame } from "lucide-react"
 
 interface SentimentBadgeProps {
   sentiment: "positive" | "neutral" | "negative" | null
@@ -23,8 +24,8 @@ export function SentimentBadge({ sentiment, score, showScore = false, isWarning 
   return (
     <div className="flex items-center gap-1.5">
       {isWarning && (
-        <Badge variant="warning" className="px-1.5">
-          ⚠
+        <Badge variant="warning" className="px-1.5 flex items-center gap-1">
+          <Flame className="h-3 w-3" />
         </Badge>
       )}
       <Badge variant={variant}>

@@ -93,3 +93,13 @@ def health_check():
         "status": "healthy",
         "scheduler_running": scheduler_service.is_running,
     }
+
+
+@app.get("/api/config")
+def get_config():
+    """Get public configuration (no auth required)."""
+    from app.config import get_settings
+    settings = get_settings()
+    return {
+        "auth_enabled": settings.auth_enabled,
+    }

@@ -44,6 +44,7 @@ interface AuthContextType {
   user: AuthUser | null
   isAuthenticated: boolean
   isLoading: boolean
+  authEnabled: boolean  // True only if both frontend AND backend have auth enabled
   login: () => Promise<void>
   logout: () => void
   getAccessToken: () => Promise<string | null>
@@ -52,9 +53,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Inner provider that uses MSAL hooks
-function AuthProviderInner({ children }: { children: ReactNode }) {
+function AuthProviderInner({ children, backendAuthEnabled }: { children: ReactNode; backendAuthEnabled: boolean }) {
   const { instance, accounts, inProgress } = useMsal()
-  const isAuthenticated = useIsAuthenticated()
+  const isMsalAuthenticated = useIsAuthenticated()
+  // Only consider authenticated if both frontend config AND backend have auth enabled
+  const isAuthenticated = backendAuthEnabled && isMsalAuthenticated
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -185,8 +188,9 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: isAuthConfigured && isAuthenticated,
-        isLoading: isAuthConfigured && isLoading,
+        isAuthenticated,
+        isLoading,
+        authEnabled: backendAuthEnabled,
         login,
         logout,
         getAccessToken,
@@ -200,24 +204,49 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
 // Outer provider that wraps with MsalProvider
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false)
+  const [backendAuthEnabled, setBackendAuthEnabled] = useState<boolean | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // If auth is not configured, just render children without auth
-  if (!isAuthConfigured) {
+  // Fetch backend config to check if auth is enabled
+  useEffect(() => {
+    async function checkBackendAuth() {
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        const response = await fetch(`${API_BASE}/api/config`)
+        if (response.ok) {
+          const data = await response.json()
+          setBackendAuthEnabled(data.auth_enabled === true)
+        } else {
+          // If config endpoint fails, assume auth is disabled
+          setBackendAuthEnabled(false)
+        }
+      } catch (error) {
+        console.warn("Failed to fetch backend config, assuming auth disabled:", error)
+        setBackendAuthEnabled(false)
+      }
+    }
+    if (isMounted) {
+      checkBackendAuth()
+    }
+  }, [isMounted])
+
+  // If frontend auth is not configured OR backend auth is disabled, render without auth
+  if (!isAuthConfigured || backendAuthEnabled === false) {
     return (
       <AuthContext.Provider
         value={{
           user: null,
           isAuthenticated: false,
           isLoading: false,
+          authEnabled: false,
           login: async () => {
-            console.warn("Auth not configured")
+            console.warn("Auth not enabled")
           },
           logout: () => {
-            console.warn("Auth not configured")
+            console.warn("Auth not enabled")
           },
           getAccessToken: async () => null,
         }}
@@ -227,14 +256,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  // Wait for client-side mount before initializing MSAL
-  if (!isMounted) {
+  // Wait for client-side mount and backend config check before initializing MSAL
+  if (!isMounted || backendAuthEnabled === null) {
     return (
       <AuthContext.Provider
         value={{
           user: null,
           isAuthenticated: false,
           isLoading: true,
+          authEnabled: false,
           login: async () => {},
           logout: () => {},
           getAccessToken: async () => null,
@@ -247,7 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <MsalProvider instance={getMsalInstance()}>
-      <AuthProviderInner>{children}</AuthProviderInner>
+      <AuthProviderInner backendAuthEnabled={backendAuthEnabled}>{children}</AuthProviderInner>
     </MsalProvider>
   )
 }

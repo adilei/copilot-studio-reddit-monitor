@@ -15,14 +15,14 @@ import { User, ChevronDown, Check, LogIn, LogOut, Copy } from "lucide-react"
 
 export function Header() {
   const { contributor, contributors, setContributor, loading } = useContributor()
-  const { user, isAuthenticated, isLoading: authLoading, login, logout, getAccessToken } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading, authEnabled, login, logout, getAccessToken } = useAuth()
 
   return (
     <header className="h-14 border-b bg-card flex items-center justify-end px-6 gap-4">
-      {/* Auth section */}
-      {authLoading ? (
+      {/* Auth section - only show if auth is enabled on backend */}
+      {authEnabled && authLoading ? (
         <span className="text-sm text-muted-foreground">Loading...</span>
-      ) : isAuthenticated && user ? (
+      ) : authEnabled && isAuthenticated && user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2">
@@ -75,15 +75,15 @@ export function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : (
+      ) : authEnabled ? (
         <Button variant="outline" size="sm" onClick={login} className="flex items-center gap-2">
           <LogIn className="h-4 w-4" />
           Sign in with Microsoft
         </Button>
-      )}
+      ) : null}
 
-      {/* Contributor selector - only show if not using auth or auth is not configured */}
-      {!isAuthenticated && (
+      {/* Contributor selector - show if auth disabled OR authenticated but not linked to a contributor */}
+      {(!authEnabled || (isAuthenticated && !user?.contributorId)) && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2">

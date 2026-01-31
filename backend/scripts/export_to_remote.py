@@ -73,6 +73,11 @@ def parse_args():
         default=60,
         help="Request timeout in seconds (default: 60)",
     )
+    parser.add_argument(
+        "--token",
+        type=str,
+        help="Bearer token for authenticated endpoints",
+    )
     return parser.parse_args()
 
 
@@ -243,8 +248,12 @@ def main():
         url = f"{args.remote_url.rstrip('/')}/api/sync"
         print(f"\nSending to {url}...")
 
+        headers = {}
+        if args.token:
+            headers["Authorization"] = f"Bearer {args.token}"
+
         with httpx.Client(timeout=args.timeout) as client:
-            response = client.post(url, json=payload)
+            response = client.post(url, json=payload, headers=headers)
             response.raise_for_status()
             result = response.json()
 

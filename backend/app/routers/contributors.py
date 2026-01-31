@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime, timedelta
 
 from app.database import get_db
-from app.models import Contributor, ContributorReply
+from app.models import Contributor, ContributorReply, Post
 from app.schemas import ContributorCreate, ContributorResponse
 from app.auth import get_current_user
 
@@ -175,3 +176,98 @@ def activate_contributor(contributor_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Contributor activated"}
+
+
+@router.get("/{contributor_id}/activity")
+def get_contributor_activity(
+    contributor_id: int,
+    days: int = Query(90, ge=7, le=365),
+    db: Session = Depends(get_db),
+):
+    """Get contributor reply activity over time."""
+    contributor = db.query(Contributor).filter(Contributor.id == contributor_id).first()
+    if not contributor:
+        raise HTTPException(status_code=404, detail="Contributor not found")
+
+    start_date = datetime.utcnow() - timedelta(days=days)
+
+    # Get daily reply counts
+    daily_counts = (
+        db.query(
+            func.date(ContributorReply.replied_at).label("date"),
+            func.count(ContributorReply.id).label("count"),
+        )
+        .filter(ContributorReply.contributor_id == contributor_id)
+        .filter(ContributorReply.replied_at >= start_date)
+        .group_by(func.date(ContributorReply.replied_at))
+        .order_by(func.date(ContributorReply.replied_at))
+        .all()
+    )
+
+    # Get summary stats
+    now = datetime.utcnow()
+    day_ago = now - timedelta(days=1)
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    replies_today = (
+        db.query(func.count(ContributorReply.id))
+        .filter(ContributorReply.contributor_id == contributor_id)
+        .filter(ContributorReply.replied_at >= day_ago)
+        .scalar() or 0
+    )
+    replies_week = (
+        db.query(func.count(ContributorReply.id))
+        .filter(ContributorReply.contributor_id == contributor_id)
+        .filter(ContributorReply.replied_at >= week_ago)
+        .scalar() or 0
+    )
+    replies_month = (
+        db.query(func.count(ContributorReply.id))
+        .filter(ContributorReply.contributor_id == contributor_id)
+        .filter(ContributorReply.replied_at >= month_ago)
+        .scalar() or 0
+    )
+    replies_total = (
+        db.query(func.count(ContributorReply.id))
+        .filter(ContributorReply.contributor_id == contributor_id)
+        .scalar() or 0
+    )
+
+    # Get recent posts they replied to
+    recent_replies = (
+        db.query(ContributorReply, Post)
+        .join(Post, ContributorReply.post_id == Post.id)
+        .filter(ContributorReply.contributor_id == contributor_id)
+        .order_by(ContributorReply.replied_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    recent_posts = [
+        {
+            "post_id": post.id,
+            "title": post.title,
+            "replied_at": reply.replied_at.isoformat(),
+        }
+        for reply, post in recent_replies
+    ]
+
+    return {
+        "contributor": {
+            "id": contributor.id,
+            "name": contributor.name,
+            "reddit_handle": contributor.reddit_handle,
+        },
+        "activity": [
+            {"date": str(row.date), "count": row.count}
+            for row in daily_counts
+        ],
+        "summary": {
+            "replies_today": replies_today,
+            "replies_week": replies_week,
+            "replies_month": replies_month,
+            "replies_total": replies_total,
+        },
+        "recent_posts": recent_posts,
+    }

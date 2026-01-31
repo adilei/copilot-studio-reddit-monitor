@@ -22,6 +22,7 @@ export function Dashboard() {
   const [stats, setStats] = useState<OverviewStats | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus | null>(null)
   const [warningPosts, setWarningPosts] = useState<WarningPost[]>([])
+  const [totalWarningCount, setTotalWarningCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -41,11 +42,12 @@ export function Dashboard() {
       const [statsData, statusData, warnings] = await Promise.all([
         getOverviewStats(),
         getScrapeStatus(),
-        getWarningPosts(5),
+        getWarningPosts(50, true),
       ])
       setStats(statsData)
       setScrapeStatus(statusData)
-      setWarningPosts(warnings)
+      setTotalWarningCount(warnings.length)
+      setWarningPosts(warnings.slice(0, 5))
     } catch (error) {
       console.error("Failed to load dashboard data:", error)
     } finally {
@@ -152,14 +154,23 @@ export function Dashboard() {
       </div>
 
       {/* Boiling Posts tile */}
-      {warningPosts.length > 0 && (
+      {totalWarningCount > 0 && (
         <Card className="border-orange-200 bg-orange-50/50">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-orange-600" />
-                Boiling Posts ({warningPosts.length})
+                Boiling Posts
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({warningPosts.length} of {totalWarningCount})
+                </span>
               </CardTitle>
+              <Link
+                href="/posts?sentiment=negative"
+                className="text-sm text-orange-600 hover:text-orange-800 hover:underline"
+              >
+                View all negative →
+              </Link>
             </div>
           </CardHeader>
           <CardContent>

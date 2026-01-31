@@ -254,8 +254,11 @@ export interface WarningPost {
   summary: string | null
 }
 
-export async function getWarningPosts(limit?: number): Promise<WarningPost[]> {
-  const query = limit ? `?limit=${limit}` : ""
+export async function getWarningPosts(limit?: number, withoutReply?: boolean): Promise<WarningPost[]> {
+  const params = new URLSearchParams()
+  if (limit) params.set("limit", limit.toString())
+  if (withoutReply) params.set("without_reply", "true")
+  const query = params.toString() ? `?${params.toString()}` : ""
   return fetchApi<WarningPost[]>(`/api/analytics/warnings${query}`)
 }
 

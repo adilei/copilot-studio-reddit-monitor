@@ -1,7 +1,6 @@
 "use client"
 
 import { useAuth } from "@/lib/auth-context"
-import { isAuthConfigured } from "@/lib/msal-config"
 import { Button } from "@/components/ui/button"
 import { LogIn } from "lucide-react"
 
@@ -10,10 +9,10 @@ interface AuthGateProps {
 }
 
 export function AuthGate({ children }: AuthGateProps) {
-  const { isAuthenticated, isLoading, login } = useAuth()
+  const { isAuthenticated, isLoading, authEnabled, login } = useAuth()
 
-  // If auth is not configured, just render children (dev mode without auth)
-  if (!isAuthConfigured) {
+  // If auth is not enabled (frontend not configured OR backend has auth disabled), just render children
+  if (!authEnabled) {
     return <>{children}</>
   }
 

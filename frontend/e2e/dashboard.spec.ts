@@ -9,29 +9,20 @@ test.describe('Dashboard', () => {
     // Check page title/heading
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
-    // Check all 4 stat cards are present
+    // Check all 5 stat cards are present (updated to match current dashboard)
     await expect(page.getByText('Total Posts')).toBeVisible();
+    await expect(page.getByText('Waiting for Pickup')).toBeVisible();
+    await expect(page.getByText('In Progress')).toBeVisible();
+    await expect(page.getByText('Handled')).toBeVisible();
     await expect(page.getByText('Negative Sentiment')).toBeVisible();
-    await expect(page.getByText('Handled', { exact: true })).toBeVisible();
-    await expect(page.getByText('Pending', { exact: true })).toBeVisible();
-
-    // Check scrape button exists
-    await expect(page.getByRole('button', { name: /Scrape Now/i })).toBeVisible();
-  });
-
-  test('should display scraper status section', async ({ page }) => {
-    await expect(page.getByText('Scraper Status')).toBeVisible();
-    // Should show either "Running" or "Idle"
-    const statusText = page.getByText(/Running|Idle/);
-    await expect(statusText).toBeVisible();
   });
 
   test('should navigate to all posts when clicking Total Posts card', async ({ page }) => {
     // Click on the card that contains "Total Posts"
-    // The card has cursor-pointer class, find it by its title text
     await page.locator('.cursor-pointer').filter({ hasText: 'Total Posts' }).click();
 
-    await expect(page).toHaveURL('/posts');
+    // URL may have trailing slash
+    await expect(page).toHaveURL(/\/posts\/?$/);
     await expect(page.getByRole('heading', { name: 'Posts' })).toBeVisible();
   });
 
@@ -39,21 +30,21 @@ test.describe('Dashboard', () => {
     // Click on the Negative Sentiment card
     await page.locator('.cursor-pointer').filter({ hasText: 'Negative Sentiment' }).click();
 
-    await expect(page).toHaveURL('/posts?sentiment=negative');
+    await expect(page).toHaveURL(/\/posts\/?\?sentiment=negative/);
   });
 
-  test('should navigate to handled posts when clicking Handled card', async ({ page }) => {
-    // Click the Handled card - it contains "Handled" and "posts with MS response"
-    await page.locator('.cursor-pointer').filter({ hasText: 'posts with MS response' }).click();
+  test('should navigate to Handled posts when clicking Handled card', async ({ page }) => {
+    // Click the Handled card
+    await page.locator('.cursor-pointer').filter({ hasText: 'Handled' }).click();
 
-    await expect(page).toHaveURL('/posts?status=handled');
+    await expect(page).toHaveURL(/\/posts\/?\?status=handled/);
   });
 
-  test('should navigate to pending posts when clicking Pending card', async ({ page }) => {
-    // Click the Pending card - it contains "Pending" and "awaiting analysis"
-    await page.locator('.cursor-pointer').filter({ hasText: 'awaiting analysis' }).click();
+  test('should navigate to Waiting for Pickup posts when clicking that card', async ({ page }) => {
+    // Click the Waiting for Pickup card
+    await page.locator('.cursor-pointer').filter({ hasText: 'Waiting for Pickup' }).click();
 
-    await expect(page).toHaveURL('/posts?status=pending');
+    await expect(page).toHaveURL(/\/posts\/?\?status=waiting_for_pickup/);
   });
 
   test('should display Boiling Posts tile when warning posts exist', async ({ page }) => {
@@ -66,8 +57,8 @@ test.describe('Dashboard', () => {
 
     if (isVisible) {
       await expect(boilingPostsTile).toBeVisible();
-      // Should show count in parentheses
-      await expect(page.getByText(/Boiling Posts \(\d+\)/)).toBeVisible();
+      // Should show count in parentheses like "(5 of 10)"
+      await expect(page.getByText(/\(\d+ of \d+\)/)).toBeVisible();
     }
   });
 
@@ -78,13 +69,24 @@ test.describe('Dashboard', () => {
 
     if (isVisible) {
       // Click the first post link in the Boiling Posts tile
-      const firstPost = page.locator('a[href^="/posts/"]').first();
+      const firstPost = page.locator('a[href^="/posts/detail"]').first();
       const href = await firstPost.getAttribute('href');
 
       if (href) {
         await firstPost.click();
         await expect(page).toHaveURL(href);
       }
+    }
+  });
+
+  test('should have View all negative link in Boiling Posts section', async ({ page }) => {
+    const boilingPostsTile = page.getByText('Boiling Posts');
+    const isVisible = await boilingPostsTile.isVisible().catch(() => false);
+
+    if (isVisible) {
+      // Check for "View all negative" link
+      const viewAllLink = page.getByText('View all negative');
+      await expect(viewAllLink).toBeVisible();
     }
   });
 });

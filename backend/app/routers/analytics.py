@@ -57,11 +57,13 @@ def get_overview_stats(db: Session = Depends(get_db)):
         (negative_count / analyzed_total * 100) if analyzed_total > 0 else 0
     )
 
-    # Has reply count (posts with at least one contributor reply)
+    # Handled count (posts with contributor reply OR manually resolved)
     posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
-    has_reply_count = (
+    handled_count = (
         db.query(func.count(Post.id))
-        .filter(Post.id.in_(posts_with_replies))
+        .filter(
+            (Post.id.in_(posts_with_replies)) | (Post.resolved == 1)
+        )
         .scalar()
         or 0
     )
@@ -93,17 +95,18 @@ def get_overview_stats(db: Session = Depends(get_db)):
         or 0
     )
 
-    # In progress count - posts that are checked out but don't have a reply yet
+    # In progress count - posts that are checked out AND not handled
     in_progress_count = (
         db.query(func.count(Post.id))
         .filter(Post.checked_out_by.isnot(None))
         .filter(~Post.id.in_(posts_with_replies))
+        .filter(Post.resolved == 0)
         .scalar()
         or 0
     )
 
-    # Awaiting pickup count - posts without MS response AND not checked out
-    awaiting_pickup_count = total_posts - has_reply_count - in_progress_count
+    # Awaiting pickup count - posts not handled AND not checked out
+    awaiting_pickup_count = total_posts - handled_count - in_progress_count
 
     return OverviewStats(
         total_posts=total_posts,
@@ -111,7 +114,7 @@ def get_overview_stats(db: Session = Depends(get_db)):
         negative_percentage=round(negative_percentage, 1),
         analyzed_count=analyzed_count,
         not_analyzed_count=not_analyzed_count,
-        has_reply_count=has_reply_count,
+        handled_count=handled_count,
         warning_count=warning_count,
         in_progress_count=in_progress_count,
         awaiting_pickup_count=awaiting_pickup_count,
@@ -244,7 +247,8 @@ def get_status_breakdown(db: Session = Depends(get_db)):
 @router.get("/warnings")
 def get_warnings(
     limit: int = Query(10, ge=1, le=50),
-    without_reply: bool = Query(False, description="Only show posts without MS reply"),
+    without_reply: bool = Query(False, description="Only show posts without MS reply (deprecated, use exclude_handled)"),
+    exclude_handled: bool = Query(False, description="Exclude handled posts (has reply OR resolved)"),
     db: Session = Depends(get_db),
 ):
     """Get posts with warning flag (is_warning=True)."""
@@ -268,10 +272,11 @@ def get_warnings(
 
     query = db.query(Post).filter(Post.id.in_(warning_post_ids))
 
-    # Optionally filter to posts without replies
-    if without_reply:
+    # Exclude handled posts (has reply OR resolved)
+    if exclude_handled or without_reply:
         posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
         query = query.filter(~Post.id.in_(posts_with_replies))
+        query = query.filter(Post.resolved == 0)
 
     posts = query.order_by(Post.created_utc.desc()).limit(limit).all()
 

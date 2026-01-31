@@ -102,6 +102,12 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
                 {post.checked_out_by_name}
               </Badge>
             )}
+            {(post.has_contributor_reply || post.resolved) && (
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Handled
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -121,12 +127,6 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
               <MessageSquare className="h-4 w-4" />
               {post.num_comments}
             </span>
-            {post.has_contributor_reply && (
-              <span className="flex items-center gap-1 text-green-600">
-                <CheckCircle className="h-4 w-4" />
-                MS Reply
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-2">
             {contributor && !post.checked_out_by && (

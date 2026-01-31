@@ -22,6 +22,10 @@ export interface Post {
   checked_out_by: number | null
   checked_out_by_name: string | null
   checked_out_at: string | null
+  resolved: boolean
+  resolved_at: string | null
+  resolved_by: number | null
+  resolved_by_name: string | null
 }
 
 export interface PostDetail extends Post {
@@ -76,7 +80,7 @@ export interface OverviewStats {
   negative_percentage: number
   analyzed_count: number
   not_analyzed_count: number
-  has_reply_count: number
+  handled_count: number
   warning_count: number
   in_progress_count: number
   awaiting_pickup_count: number
@@ -134,6 +138,8 @@ export async function getPosts(params?: {
   checked_out_by?: number
   available_only?: boolean
   has_reply?: boolean
+  resolved?: boolean
+  status?: "waiting_for_pickup" | "in_progress" | "handled"
 }): Promise<Post[]> {
   const searchParams = new URLSearchParams()
   if (params) {
@@ -170,6 +176,26 @@ export async function releasePost(
   contributorId: number
 ): Promise<Post> {
   return fetchApi<Post>(`/api/posts/${id}/release`, {
+    method: "POST",
+    body: JSON.stringify({ contributor_id: contributorId }),
+  })
+}
+
+export async function resolvePost(
+  id: string,
+  contributorId: number
+): Promise<Post> {
+  return fetchApi<Post>(`/api/posts/${id}/resolve`, {
+    method: "POST",
+    body: JSON.stringify({ contributor_id: contributorId }),
+  })
+}
+
+export async function unresolvePost(
+  id: string,
+  contributorId: number
+): Promise<Post> {
+  return fetchApi<Post>(`/api/posts/${id}/unresolve`, {
     method: "POST",
     body: JSON.stringify({ contributor_id: contributorId }),
   })
@@ -254,10 +280,10 @@ export interface WarningPost {
   summary: string | null
 }
 
-export async function getWarningPosts(limit?: number, withoutReply?: boolean): Promise<WarningPost[]> {
+export async function getWarningPosts(limit?: number, excludeHandled?: boolean): Promise<WarningPost[]> {
   const params = new URLSearchParams()
   if (limit) params.set("limit", limit.toString())
-  if (withoutReply) params.set("without_reply", "true")
+  if (excludeHandled) params.set("exclude_handled", "true")
   const query = params.toString() ? `?${params.toString()}` : ""
   return fetchApi<WarningPost[]>(`/api/analytics/warnings${query}`)
 }

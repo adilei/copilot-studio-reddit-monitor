@@ -23,10 +23,16 @@ class Post(Base):
     checked_out_by = Column(Integer, ForeignKey("contributors.id"), nullable=True)
     checked_out_at = Column(DateTime, nullable=True)
 
+    # Resolution fields
+    resolved = Column(Integer, default=0)  # 0 = open, 1 = resolved (using Integer for SQLite compatibility)
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by = Column(Integer, ForeignKey("contributors.id"), nullable=True)
+
     # Relationships
     analyses = relationship("Analysis", back_populates="post", cascade="all, delete-orphan")
     contributor_replies = relationship("ContributorReply", back_populates="post", cascade="all, delete-orphan")
     checked_out_contributor = relationship("Contributor", foreign_keys=[checked_out_by])
+    resolved_contributor = relationship("Contributor", foreign_keys=[resolved_by])
 
     @property
     def is_analyzed(self):

@@ -104,14 +104,13 @@ pytest tests/test_specific.py -v  # Run single file
 - Analysis does NOT downgrade "handled" status
 
 ### Post Data Model (Orthogonal Dimensions)
-Posts have three independent state dimensions:
+Posts have four independent state dimensions:
 1. **Analysis** (automatic): `is_analyzed` - computed from whether analyses exist
 2. **Checkout** (manual): `checked_out_by` - contributor claiming the post to work on
 3. **MS Response** (automatic): `has_contributor_reply` - detected from comment scraping
+4. **Resolution** (manual): `resolved` - contributor marks post as "done" (vetted/no action needed)
 
-These are intentionally orthogonal - a post can be checked out but already have a response, or have no checkout but multiple analyses.
-
-Note: Future enhancement to add "resolution" tracking is documented in GitHub issue #4.
+These are intentionally orthogonal - a post can be checked out but already have a response, or be resolved without an MS reply if a community response was sufficient.
 
 ## Important Implementation Notes
 
@@ -136,11 +135,13 @@ Backend allows origins: localhost:3000, 3001, 3002, and 127.0.0.1 variants (Next
   - Use `export_to_remote.py` script to push data from source to destination
 
 ### Posts
-- `GET /api/posts` - List posts (supports analyzed, sentiment, has_reply, checkout filters)
+- `GET /api/posts` - List posts (supports analyzed, sentiment, has_reply, checkout, resolved filters)
 - `GET /api/posts/{id}` - Get post details with analyses
 - `POST /api/posts/{id}/analyze` - Trigger analysis for single post
 - `POST /api/posts/{id}/checkout` - Checkout post for a contributor
 - `POST /api/posts/{id}/release` - Release checkout on a post
+- `POST /api/posts/{id}/resolve` - Mark post as done/vetted
+- `POST /api/posts/{id}/unresolve` - Reopen a resolved post
 
 ### Scraper
 - `POST /api/scrape` - Trigger manual scrape
@@ -209,6 +210,14 @@ When adding a new feature, add corresponding E2E tests **immediately**:
 4. Run `npm test` to verify all tests pass before committing
 
 **Important**: When adding clickable elements (links, buttons that navigate), always test that the destination route exists and renders correctly. Don't assume links work - verify them in the browser or with E2E tests.
+
+### Running Tests After Changes
+**CRITICAL**: After making ANY frontend or backend changes that affect the UI:
+1. Run `npx playwright test` in the frontend directory
+2. Fix any failing tests before committing
+3. Tests should be workflow-focused (test user journeys) not label-focused (testing specific text strings that may change)
+
+This prevents regressions and catches issues early. Test failures often reveal mismatched expectations between old tests and new UI.
 
 See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.
 

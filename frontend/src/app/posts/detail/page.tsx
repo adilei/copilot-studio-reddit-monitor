@@ -11,6 +11,8 @@ import {
   analyzePost,
   checkoutPost,
   releasePost,
+  resolvePost,
+  unresolvePost,
   type PostDetail,
 } from "@/lib/api"
 import { useContributor } from "@/lib/contributor-context"
@@ -22,6 +24,8 @@ import {
   ThumbsUp,
   Sparkles,
   CheckCircle,
+  CheckCircle2,
+  CircleDashed,
   Lock,
   Unlock,
   UserCheck,
@@ -45,6 +49,7 @@ function PostDetailContent() {
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
   const [checkingOut, setCheckingOut] = useState(false)
+  const [resolving, setResolving] = useState(false)
 
   const isCheckedOutByMe =
     contributor && post?.checked_out_by === contributor.id
@@ -124,6 +129,44 @@ function PostDetailContent() {
       console.error("Failed to release post:", error)
     } finally {
       setCheckingOut(false)
+    }
+  }
+
+  async function handleResolve() {
+    if (!post || !contributor) return
+    setResolving(true)
+    try {
+      const updated = await resolvePost(post.id, contributor.id)
+      setPost({
+        ...post,
+        resolved: updated.resolved,
+        resolved_at: updated.resolved_at,
+        resolved_by: updated.resolved_by,
+        resolved_by_name: updated.resolved_by_name,
+      })
+    } catch (error) {
+      console.error("Failed to resolve post:", error)
+    } finally {
+      setResolving(false)
+    }
+  }
+
+  async function handleUnresolve() {
+    if (!post || !contributor) return
+    setResolving(true)
+    try {
+      await unresolvePost(post.id, contributor.id)
+      setPost({
+        ...post,
+        resolved: false,
+        resolved_at: null,
+        resolved_by: null,
+        resolved_by_name: null,
+      })
+    } catch (error) {
+      console.error("Failed to unresolve post:", error)
+    } finally {
+      setResolving(false)
     }
   }
 
@@ -219,6 +262,20 @@ function PostDetailContent() {
                 <Badge variant="outline">No</Badge>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Status:</span>
+              {post.resolved ? (
+                <Badge className="bg-purple-100 text-purple-800">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Done
+                </Badge>
+              ) : (
+                <Badge variant="outline">
+                  <CircleDashed className="h-3 w-3 mr-1" />
+                  Open
+                </Badge>
+              )}
+            </div>
             <Button onClick={handleAnalyze} disabled={analyzing} variant="outline">
               <Sparkles className="h-4 w-4 mr-2" />
               {analyzing ? "Analyzing..." : post.is_analyzed ? "Re-analyze" : "Analyze"}
@@ -276,6 +333,52 @@ function PostDetailContent() {
               <div className="text-sm text-muted-foreground">
                 Select a contributor in the sidebar to checkout this post
               </div>
+            )}
+          </div>
+
+          {/* Resolution section */}
+          <div className="flex flex-wrap items-center gap-4 pt-4 border-t">
+            <span className="text-sm font-medium">Resolution:</span>
+            {post.resolved ? (
+              <div className="flex items-center gap-2">
+                <Badge className="bg-purple-100 text-purple-800">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Marked done by {post.resolved_by_name}
+                </Badge>
+                {post.resolved_at && (
+                  <span className="text-xs text-muted-foreground">
+                    {formatRelativeTime(post.resolved_at)}
+                  </span>
+                )}
+                {contributor && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleUnresolve}
+                    disabled={resolving}
+                  >
+                    <CircleDashed className="h-4 w-4 mr-1" />
+                    Reopen
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                {contributor ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleResolve}
+                    disabled={resolving}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    {resolving ? "Marking..." : "Mark as Done"}
+                  </Button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    Select a contributor to mark this post as done
+                  </span>
+                )}
+              </>
             )}
           </div>
         </CardContent>

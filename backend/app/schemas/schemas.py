@@ -56,6 +56,10 @@ class PostResponse(PostBase):
     checked_out_by: int | None = None
     checked_out_by_name: str | None = None
     checked_out_at: datetime | None = None
+    resolved: bool = False
+    resolved_at: datetime | None = None
+    resolved_by: int | None = None
+    resolved_by_name: str | None = None
 
     class Config:
         from_attributes = True
@@ -74,6 +78,14 @@ class PostCheckoutRequest(BaseModel):
 
 
 class PostReleaseRequest(BaseModel):
+    contributor_id: int
+
+
+class PostResolveRequest(BaseModel):
+    contributor_id: int
+
+
+class PostUnresolveRequest(BaseModel):
     contributor_id: int
 
 
@@ -133,7 +145,7 @@ class OverviewStats(BaseModel):
     negative_percentage: float
     analyzed_count: int
     not_analyzed_count: int
-    has_reply_count: int = 0
+    handled_count: int = 0
     warning_count: int = 0
     in_progress_count: int = 0
     awaiting_pickup_count: int = 0

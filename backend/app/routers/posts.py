@@ -11,6 +11,8 @@ from app.schemas import (
     PostDetail,
     PostCheckoutRequest,
     PostReleaseRequest,
+    PostResolveRequest,
+    PostUnresolveRequest,
     AnalysisResponse,
     ContributorReplyResponse,
 )
@@ -36,6 +38,8 @@ def list_posts(
     checked_out_by: int | None = None,
     available_only: bool = False,
     has_reply: bool | None = None,
+    resolved: bool | None = None,
+    status: Literal["waiting_for_pickup", "in_progress", "handled"] | None = None,
     db: Session = Depends(get_db),
 ):
     """List posts with filtering and pagination."""
@@ -63,6 +67,30 @@ def list_posts(
         query = query.filter(Post.checked_out_by == checked_out_by)
     if available_only:
         query = query.filter(Post.checked_out_by == None)
+    if resolved is not None:
+        if resolved:
+            query = query.filter(Post.resolved == 1)
+        else:
+            query = query.filter(Post.resolved == 0)
+    # Unified status filter (workflow states)
+    if status:
+        from app.models import ContributorReply
+        posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
+        if status == "waiting_for_pickup":
+            # Not checked out AND not handled (no reply AND not resolved)
+            query = query.filter(Post.checked_out_by == None)
+            query = query.filter(~Post.id.in_(posts_with_replies))
+            query = query.filter(Post.resolved == 0)
+        elif status == "in_progress":
+            # Checked out AND not handled
+            query = query.filter(Post.checked_out_by != None)
+            query = query.filter(~Post.id.in_(posts_with_replies))
+            query = query.filter(Post.resolved == 0)
+        elif status == "handled":
+            # Has reply OR resolved
+            query = query.filter(
+                (Post.id.in_(posts_with_replies)) | (Post.resolved == 1)
+            )
     if search:
         search_term = f"%{search}%"
         query = query.filter(
@@ -121,6 +149,10 @@ def list_posts(
             "checked_out_by": post.checked_out_by,
             "checked_out_by_name": post.checked_out_contributor.name if post.checked_out_contributor else None,
             "checked_out_at": post.checked_out_at,
+            "resolved": bool(post.resolved),
+            "resolved_at": post.resolved_at,
+            "resolved_by": post.resolved_by,
+            "resolved_by_name": post.resolved_contributor.name if post.resolved_contributor else None,
         }
 
         if post.latest_analysis:
@@ -175,6 +207,10 @@ def get_post(post_id: str, db: Session = Depends(get_db)):
         checked_out_by=post.checked_out_by,
         checked_out_by_name=post.checked_out_contributor.name if post.checked_out_contributor else None,
         checked_out_at=post.checked_out_at,
+        resolved=bool(post.resolved),
+        resolved_at=post.resolved_at,
+        resolved_by=post.resolved_by,
+        resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
         analyses=[AnalysisResponse.model_validate(a) for a in post.analyses],
         contributor_replies=replies,
     )
@@ -252,6 +288,10 @@ def checkout_post(
         checked_out_by=post.checked_out_by,
         checked_out_by_name=post.checked_out_contributor.name if post.checked_out_contributor else None,
         checked_out_at=post.checked_out_at,
+        resolved=bool(post.resolved),
+        resolved_at=post.resolved_at,
+        resolved_by=post.resolved_by,
+        resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
     )
 
 
@@ -302,4 +342,92 @@ def release_post(
         checked_out_by=post.checked_out_by,
         checked_out_by_name=None,
         checked_out_at=post.checked_out_at,
+        resolved=bool(post.resolved),
+        resolved_at=post.resolved_at,
+        resolved_by=post.resolved_by,
+        resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
     )
+
+
+def _build_post_response(post: Post) -> PostResponse:
+    """Helper to build PostResponse from Post model."""
+    return PostResponse(
+        id=post.id,
+        subreddit=post.subreddit,
+        title=post.title,
+        body=post.body,
+        author=post.author,
+        url=post.url,
+        score=post.score,
+        num_comments=post.num_comments,
+        created_utc=post.created_utc,
+        scraped_at=post.scraped_at,
+        is_analyzed=post.is_analyzed,
+        latest_sentiment=post.latest_analysis.sentiment if post.latest_analysis else None,
+        latest_sentiment_score=post.latest_analysis.sentiment_score if post.latest_analysis else None,
+        is_warning=post.latest_analysis.is_warning if post.latest_analysis else False,
+        has_contributor_reply=len(post.contributor_replies) > 0,
+        checked_out_by=post.checked_out_by,
+        checked_out_by_name=post.checked_out_contributor.name if post.checked_out_contributor else None,
+        checked_out_at=post.checked_out_at,
+        resolved=bool(post.resolved),
+        resolved_at=post.resolved_at,
+        resolved_by=post.resolved_by,
+        resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
+    )
+
+
+@router.post("/{post_id}/resolve", response_model=PostResponse)
+def resolve_post(
+    post_id: str,
+    resolve_request: PostResolveRequest,
+    db: Session = Depends(get_db),
+):
+    """Mark a post as resolved/vetted by a contributor."""
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    # Check if contributor exists
+    contributor = db.query(Contributor).filter(Contributor.id == resolve_request.contributor_id).first()
+    if not contributor:
+        raise HTTPException(status_code=404, detail="Contributor not found")
+
+    # Mark as resolved
+    post.resolved = 1
+    post.resolved_at = datetime.utcnow()
+    post.resolved_by = resolve_request.contributor_id
+    db.commit()
+    db.refresh(post)
+
+    return _build_post_response(post)
+
+
+@router.post("/{post_id}/unresolve", response_model=PostResponse)
+def unresolve_post(
+    post_id: str,
+    unresolve_request: PostUnresolveRequest,
+    db: Session = Depends(get_db),
+):
+    """Mark a post as unresolved (reopen it)."""
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    # Check if contributor exists
+    contributor = db.query(Contributor).filter(Contributor.id == unresolve_request.contributor_id).first()
+    if not contributor:
+        raise HTTPException(status_code=404, detail="Contributor not found")
+
+    # Check if the post is resolved
+    if not post.resolved:
+        raise HTTPException(status_code=400, detail="Post is not resolved")
+
+    # Unresolve the post
+    post.resolved = 0
+    post.resolved_at = None
+    post.resolved_by = None
+    db.commit()
+    db.refresh(post)
+
+    return _build_post_response(post)

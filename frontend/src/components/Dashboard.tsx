@@ -88,7 +88,7 @@ export function Dashboard() {
 
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push("/posts?has_reply=false&available_only=true")}
+          onClick={() => router.push("/posts?status=waiting_for_pickup")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Waiting for Pickup</CardTitle>
@@ -104,7 +104,7 @@ export function Dashboard() {
 
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push("/posts?checkout=checked_out&has_reply=false")}
+          onClick={() => router.push("/posts?status=in_progress")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
@@ -120,16 +120,16 @@ export function Dashboard() {
 
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push("/posts?has_reply=true")}
+          onClick={() => router.push("/posts?status=handled")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">MS Responded</CardTitle>
+            <CardTitle className="text-sm font-medium">Handled</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.has_reply_count || 0}</div>
+            <div className="text-2xl font-bold">{stats?.handled_count || 0}</div>
             <p className="text-xs text-muted-foreground">
-              handled
+              responded or resolved
             </p>
           </CardContent>
         </Card>

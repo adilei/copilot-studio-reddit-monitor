@@ -1,200 +1,246 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Posts List', () => {
-  test('should load posts page', async ({ page }) => {
+test.describe('Posts - Basic Page Load', () => {
+  test('should load posts page with header and filters', async ({ page }) => {
     await page.goto('/posts');
 
+    // Page structure loads
     await expect(page.getByRole('heading', { name: 'Posts' })).toBeVisible();
-    await expect(page.getByText('Browse and manage scraped Reddit posts')).toBeVisible();
-  });
 
-  test('should display filter dropdowns and search', async ({ page }) => {
-    await page.goto('/posts');
-
-    // Check filter dropdowns exist
-    await expect(page.getByRole('combobox').first()).toBeVisible(); // Status
-    await expect(page.getByRole('combobox').nth(1)).toBeVisible(); // Sentiment
+    // Has filter controls (2 dropdowns + search) - Status and Sentiment
+    const dropdowns = page.getByRole('combobox');
+    expect(await dropdowns.count()).toBe(2);
     await expect(page.getByPlaceholder('Search posts...')).toBeVisible();
-  });
-
-  test('should have refresh button', async ({ page }) => {
-    await page.goto('/posts');
-
     await expect(page.getByRole('button', { name: /Refresh/i })).toBeVisible();
+
+    // Has filter labels
+    await expect(page.getByText('Status')).toBeVisible();
+    await expect(page.getByText('Sentiment')).toBeVisible();
+  });
+
+  test('should display posts or empty message', async ({ page }) => {
+    await page.goto('/posts');
+    await page.waitForLoadState('networkidle');
+
+    // Either posts are shown or empty message
+    const postLinks = page.locator('a[href^="/posts/detail"]');
+    const emptyMessage = page.getByText(/No posts found/i);
+
+    const hasLinks = await postLinks.count() > 0;
+    const hasEmptyMessage = await emptyMessage.isVisible().catch(() => false);
+
+    expect(hasLinks || hasEmptyMessage).toBeTruthy();
   });
 });
 
-test.describe('Posts Filtering', () => {
-  test('should filter by status when using dropdown', async ({ page }) => {
+test.describe('Posts - Filtering Workflow', () => {
+  test('can filter by sentiment via dropdown and posts update', async ({ page }) => {
     await page.goto('/posts');
-
-    // Open status dropdown and select "Handled"
-    await page.getByRole('combobox').first().click();
-    await page.getByRole('option', { name: 'Handled' }).click();
-
-    // Wait for posts to load
     await page.waitForLoadState('networkidle');
 
-    // Verify dropdown shows Handled
-    await expect(page.getByRole('combobox').first()).toContainText('Handled');
-  });
-
-  test('should filter by sentiment when using dropdown', async ({ page }) => {
-    await page.goto('/posts');
-
-    // Open sentiment dropdown and select "Negative"
-    await page.getByRole('combobox').nth(1).click();
-    await page.getByRole('option', { name: 'Negative' }).click();
-
-    // Wait for posts to load
-    await page.waitForLoadState('networkidle');
-
-    // Verify dropdown shows Negative
-    await expect(page.getByRole('combobox').nth(1)).toContainText('Negative');
-  });
-
-  test('sentiment dropdown should have correct options', async ({ page }) => {
-    await page.goto('/posts');
-
-    // Open sentiment dropdown
-    await page.getByRole('combobox').nth(1).click();
-
-    // Verify options exist (warning is NOT a sentiment option - it's a flag)
-    await expect(page.getByRole('option', { name: 'All Sentiment' })).toBeVisible();
-    await expect(page.getByRole('option', { name: 'Positive' })).toBeVisible();
-    await expect(page.getByRole('option', { name: 'Neutral' })).toBeVisible();
-    await expect(page.getByRole('option', { name: 'Negative' })).toBeVisible();
-  });
-
-  test('should apply status filter from URL params on page load', async ({ page }) => {
-    // Navigate directly to filtered URL
-    await page.goto('/posts?status=handled');
-
-    // Wait for page to load
-    await page.waitForLoadState('networkidle');
-
-    // Status dropdown should show "Handled"
-    const statusDropdown = page.getByRole('combobox').first();
-    await expect(statusDropdown).toContainText('Handled');
-  });
-
-  test('should apply sentiment filter from URL params', async ({ page }) => {
-    await page.goto('/posts?sentiment=negative');
-
-    await page.waitForLoadState('networkidle');
-
-    // Sentiment dropdown should show "Negative"
+    // Click Sentiment dropdown (second combobox)
     const sentimentDropdown = page.getByRole('combobox').nth(1);
-    await expect(sentimentDropdown).toContainText('Negative');
-  });
+    await sentimentDropdown.click();
 
-  test('should show clear filters button when filters are active', async ({ page }) => {
-    await page.goto('/posts?status=pending');
-
-    await expect(page.getByRole('button', { name: 'Clear filters' })).toBeVisible();
-  });
-
-  test('should clear filters when clicking clear button', async ({ page }) => {
-    await page.goto('/posts?status=pending&sentiment=negative');
-
-    await page.getByRole('button', { name: 'Clear filters' }).click();
-
-    // Wait for reload
+    // Select negative option
+    await page.getByRole('option', { name: /Negative/i }).click();
     await page.waitForLoadState('networkidle');
 
-    // Dropdowns should reset
-    await expect(page.getByRole('combobox').first()).toContainText('All Status');
-    await expect(page.getByRole('combobox').nth(1)).toContainText('All Sentiment');
+    // Dropdown should now show Negative
+    await expect(page.getByRole('combobox').nth(1)).toContainText('Negative');
 
-    // Clear filters button should disappear
-    await expect(page.getByRole('button', { name: 'Clear filters' })).not.toBeVisible();
-  });
-});
-
-test.describe('Posts Filter Correctness', () => {
-  test('pending filter should only show pending posts or empty list', async ({ page }) => {
-    await page.goto('/posts?status=pending');
-    await page.waitForLoadState('networkidle');
-
-    // Wait a moment for posts to load
-    await page.waitForTimeout(500);
-
-    // Check if there are any posts displayed
-    const postCards = page.locator('a[href^="/posts/"]');
-    const postCount = await postCards.count();
-
-    if (postCount > 0) {
-      // If posts exist, they should all have "pending" status badge
-      const pendingBadges = page.locator('text=pending').filter({ hasText: /^pending$/ });
-      const analyzedBadges = page.getByText('analyzed', { exact: true });
-      const handledBadges = page.getByText('handled', { exact: true });
-
-      // Should not have analyzed or handled posts
-      expect(await analyzedBadges.count()).toBe(0);
-      expect(await handledBadges.count()).toBe(0);
-    } else {
-      // Empty list is valid for pending filter
-      const emptyMessage = page.getByText(/No posts found/i);
-      await expect(emptyMessage).toBeVisible();
-    }
+    // Clear filters should appear
+    await expect(page.getByRole('button', { name: /Clear filters/i })).toBeVisible();
   });
 
-  test('analyzed filter should only show analyzed posts', async ({ page }) => {
-    await page.goto('/posts?status=analyzed');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(500);
-
-    const postCards = page.locator('a[href^="/posts/"]');
-    const postCount = await postCards.count();
-
-    if (postCount > 0) {
-      // All visible posts should have "analyzed" badge
-      const pendingBadges = page.getByText('pending', { exact: true });
-      expect(await pendingBadges.count()).toBe(0);
-    }
-  });
-});
-
-test.describe('Posts Navigation from Dashboard', () => {
-  test('clicking Handled card should navigate to handled posts', async ({ page }) => {
-    // Start at dashboard
-    await page.goto('/');
-
-    // Click the Handled card
-    await page.locator('.cursor-pointer').filter({ hasText: 'posts with MS response' }).click();
-
-    // Should navigate to posts with handled filter
-    await expect(page).toHaveURL('/posts?status=handled');
-
-    // Wait for posts to load
+  test('can filter by status via dropdown', async ({ page }) => {
+    await page.goto('/posts');
     await page.waitForLoadState('networkidle');
 
-    // Status dropdown should show "Handled"
-    await expect(page.getByRole('combobox').first()).toContainText('Handled');
+    // Click Status dropdown (first combobox)
+    const statusDropdown = page.getByRole('combobox').first();
+    await statusDropdown.click();
+
+    // Select "In Progress" option
+    await page.getByRole('option', { name: /In Progress/i }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Dropdown should now show In Progress
+    await expect(page.getByRole('combobox').first()).toContainText('In Progress');
+
+    // Clear filters should appear
+    await expect(page.getByRole('button', { name: /Clear filters/i })).toBeVisible();
   });
 
-  test('clicking Negative Sentiment card should navigate to negative posts', async ({ page }) => {
-    await page.goto('/');
-
-    // Click the Negative Sentiment card
-    await page.locator('.cursor-pointer').filter({ hasText: 'Negative Sentiment' }).click();
-
-    await expect(page).toHaveURL('/posts?sentiment=negative');
+  test('sentiment filter from URL param is applied', async ({ page }) => {
+    await page.goto('/posts?sentiment=negative');
     await page.waitForLoadState('networkidle');
 
-    // Sentiment dropdown should show "Negative"
+    // The sentiment dropdown should reflect the filter
     await expect(page.getByRole('combobox').nth(1)).toContainText('Negative');
   });
 
-  test('clicking Pending card should navigate to pending posts', async ({ page }) => {
-    await page.goto('/');
-
-    // Click the Pending card
-    await page.locator('.cursor-pointer').filter({ hasText: 'awaiting analysis' }).click();
-
-    await expect(page).toHaveURL('/posts?status=pending');
+  test('status filter from URL param is applied', async ({ page }) => {
+    await page.goto('/posts?status=handled');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('combobox').first()).toContainText('Pending');
+    // The status dropdown should reflect the filter
+    await expect(page.getByRole('combobox').first()).toContainText('Handled');
+  });
+
+  test('can clear filters after applying them', async ({ page }) => {
+    await page.goto('/posts?sentiment=negative');
+    await page.waitForLoadState('networkidle');
+
+    // Clear filters button should be visible
+    const clearBtn = page.getByRole('button', { name: /Clear filters/i });
+    await expect(clearBtn).toBeVisible();
+
+    await clearBtn.click();
+    await page.waitForLoadState('networkidle');
+
+    // Clear button should disappear
+    await expect(clearBtn).not.toBeVisible();
+
+    // Dropdowns should reset to "All" variants
+    await expect(page.getByRole('combobox').first()).toContainText('All Posts');
+    await expect(page.getByRole('combobox').nth(1)).toContainText('All');
+  });
+
+  test('can search posts by text', async ({ page }) => {
+    await page.goto('/posts');
+
+    const searchInput = page.getByPlaceholder('Search posts...');
+    await searchInput.fill('copilot');
+
+    // Wait for debounced search
+    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle');
+
+    // Clear filters should appear when search is active
+    await expect(page.getByRole('button', { name: /Clear filters/i })).toBeVisible();
+  });
+});
+
+test.describe('Posts - Navigation Workflow', () => {
+  test('can navigate to post detail from list', async ({ page }) => {
+    await page.goto('/posts');
+    await page.waitForLoadState('networkidle');
+
+    const postLinks = page.locator('a[href^="/posts/detail"]');
+    const count = await postLinks.count();
+
+    if (count > 0) {
+      // Click first post
+      await postLinks.first().click();
+
+      // Should navigate to detail page (with optional trailing slash)
+      await expect(page).toHaveURL(/\/posts\/detail\/?.*id=/);
+
+      // Detail page should have back button
+      await expect(page.getByRole('button', { name: /Back/i })).toBeVisible();
+    }
+  });
+
+  test('can navigate back from post detail', async ({ page }) => {
+    await page.goto('/posts');
+    await page.waitForLoadState('networkidle');
+
+    const postLinks = page.locator('a[href^="/posts/detail"]');
+    const count = await postLinks.count();
+
+    if (count > 0) {
+      await postLinks.first().click();
+      await expect(page).toHaveURL(/\/posts\/detail/);
+
+      // Click back
+      await page.getByRole('button', { name: /Back/i }).click();
+
+      // Should be back on posts list
+      await expect(page).toHaveURL(/\/posts/);
+    }
+  });
+});
+
+test.describe('Posts - Dashboard Integration', () => {
+  test('clicking Total Posts card navigates to posts page', async ({ page }) => {
+    await page.goto('/');
+
+    // Click Total Posts card
+    await page.locator('.cursor-pointer').filter({ hasText: /Total Posts/i }).click();
+
+    // Should navigate to posts page
+    await expect(page).toHaveURL(/\/posts/);
+  });
+
+  test('clicking Negative Sentiment card navigates with filter', async ({ page }) => {
+    await page.goto('/');
+
+    await page.locator('.cursor-pointer').filter({ hasText: /Negative Sentiment/i }).click();
+
+    // Should navigate with sentiment filter
+    await expect(page).toHaveURL(/sentiment=negative/);
+  });
+
+  test('clicking Handled card navigates with status filter', async ({ page }) => {
+    await page.goto('/');
+
+    await page.locator('.cursor-pointer').filter({ hasText: /Handled/i }).click();
+
+    // Should navigate with status filter
+    await expect(page).toHaveURL(/status=handled/);
+  });
+
+  test('clicking Waiting for Pickup card navigates with status filter', async ({ page }) => {
+    await page.goto('/');
+
+    await page.locator('.cursor-pointer').filter({ hasText: /Waiting for Pickup/i }).click();
+
+    // Should navigate with status filter
+    await expect(page).toHaveURL(/status=waiting_for_pickup/);
+  });
+});
+
+test.describe('Posts - Status Filter Options', () => {
+  test('status filter dropdown includes all workflow states', async ({ page }) => {
+    await page.goto('/posts');
+    await page.waitForLoadState('networkidle');
+
+    // Click status dropdown
+    const statusDropdown = page.getByRole('combobox').first();
+    await statusDropdown.click();
+
+    // Should have all workflow status options
+    await expect(page.getByRole('option', { name: /All Posts/i })).toBeVisible();
+    await expect(page.getByRole('option', { name: /Waiting for Pickup/i })).toBeVisible();
+    await expect(page.getByRole('option', { name: /In Progress/i })).toBeVisible();
+    await expect(page.getByRole('option', { name: /Handled/i })).toBeVisible();
+  });
+
+  test('can filter by Handled status', async ({ page }) => {
+    await page.goto('/posts');
+    await page.waitForLoadState('networkidle');
+
+    // Click status dropdown
+    const statusDropdown = page.getByRole('combobox').first();
+    await statusDropdown.click();
+
+    // Select Handled
+    await page.getByRole('option', { name: /Handled/i }).click();
+    await page.waitForLoadState('networkidle');
+
+    // Dropdown should now show Handled
+    await expect(page.getByRole('combobox').first()).toContainText('Handled');
+
+    // Clear filters should be visible
+    await expect(page.getByRole('button', { name: /Clear filters/i })).toBeVisible();
+  });
+
+  test('handled status filter from URL param is applied', async ({ page }) => {
+    await page.goto('/posts?status=handled');
+    await page.waitForLoadState('networkidle');
+
+    // Status dropdown should show Handled
+    await expect(page.getByRole('combobox').first()).toContainText('Handled');
   });
 });

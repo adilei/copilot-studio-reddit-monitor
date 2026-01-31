@@ -47,12 +47,22 @@ def run_migrations():
     with engine.connect() as conn:
         # Check if microsoft_alias column exists on contributors table
         result = conn.execute(text("PRAGMA table_info(contributors)"))
-        columns = [row[1] for row in result.fetchall()]
+        contributor_columns = [row[1] for row in result.fetchall()]
 
-        if "microsoft_alias" not in columns:
+        if "microsoft_alias" not in contributor_columns:
             conn.execute(
                 text("ALTER TABLE contributors ADD COLUMN microsoft_alias VARCHAR")
             )
+            conn.commit()
+
+        # Check if resolution columns exist on posts table
+        result = conn.execute(text("PRAGMA table_info(posts)"))
+        post_columns = [row[1] for row in result.fetchall()]
+
+        if "resolved" not in post_columns:
+            conn.execute(text("ALTER TABLE posts ADD COLUMN resolved INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE posts ADD COLUMN resolved_at DATETIME"))
+            conn.execute(text("ALTER TABLE posts ADD COLUMN resolved_by INTEGER REFERENCES contributors(id)"))
             conn.commit()
 
 

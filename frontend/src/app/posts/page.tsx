@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select"
 import { getPosts, type Post } from "@/lib/api"
 import { useContributor } from "@/lib/contributor-context"
-import { Search, RefreshCw } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 
 export default function PostsPage() {
   return (
@@ -30,11 +30,9 @@ function PostsContent() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
-    analyzed: "", // "true" | "false" | ""
+    status: "", // "waiting_for_pickup" | "in_progress" | "handled" | "my_checkouts" | ""
     sentiment: "",
     search: "",
-    checkout: "", // "my_checkouts" | "available" | ""
-    hasReply: "", // "true" | "false" | ""
   })
   const initialLoadDone = useRef(false)
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -44,16 +42,16 @@ function PostsContent() {
     setLoading(true)
     try {
       const params: Record<string, string | number | boolean> = {}
-      if (currentFilters.analyzed) params.analyzed = currentFilters.analyzed === "true"
+
+      // Handle unified status filter
+      if (currentFilters.status === "my_checkouts" && currentContributorId) {
+        params.checked_out_by = currentContributorId
+      } else if (currentFilters.status && currentFilters.status !== "my_checkouts") {
+        params.status = currentFilters.status
+      }
+
       if (currentFilters.sentiment) params.sentiment = currentFilters.sentiment
       if (currentFilters.search) params.search = currentFilters.search
-      if (currentFilters.checkout === "my_checkouts" && currentContributorId) {
-        params.checked_out_by = currentContributorId
-      }
-      if (currentFilters.checkout === "available") {
-        params.available_only = true
-      }
-      if (currentFilters.hasReply) params.has_reply = currentFilters.hasReply === "true"
 
       const data = await getPosts(params)
       setPosts(data)
@@ -66,10 +64,17 @@ function PostsContent() {
 
   // Sync filters from URL params and load posts
   useEffect(() => {
-    const analyzed = searchParams.get("analyzed") || ""
     const sentiment = searchParams.get("sentiment") || ""
-    const hasReply = searchParams.get("has_reply") || ""
-    const newFilters = { analyzed, sentiment, search: filters.search, checkout: filters.checkout, hasReply }
+    // Map legacy URL params to new unified status
+    let status = searchParams.get("status") || ""
+    if (!status) {
+      const hasReply = searchParams.get("has_reply")
+      const resolved = searchParams.get("resolved")
+      if (hasReply === "true" || resolved === "true") {
+        status = "handled"
+      }
+    }
+    const newFilters = { status, sentiment, search: filters.search }
     setFilters(newFilters)
     loadPosts(newFilters, contributor?.id)
     initialLoadDone.current = true
@@ -91,7 +96,7 @@ function PostsContent() {
   }
 
   // Handle filter dropdown changes
-  function handleFilterChange(key: "analyzed" | "sentiment" | "checkout" | "hasReply", value: string) {
+  function handleFilterChange(key: "status" | "sentiment", value: string) {
     const newValue = value === "all" ? "" : value
     const newFilters = { ...filters, [key]: newValue }
     setFilters(newFilters)
@@ -119,78 +124,61 @@ function PostsContent() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4">
-        <Select
-          value={filters.analyzed || "all"}
-          onValueChange={(value) => handleFilterChange("analyzed", value)}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Analysis" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Posts</SelectItem>
-            <SelectItem value="true">Analyzed</SelectItem>
-            <SelectItem value="false">Not Analyzed</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap gap-6 items-end">
+        <div className="space-y-1.5">
+          <span className="text-xs text-muted-foreground">Status</span>
+          <Select
+            value={filters.status || "all"}
+            onValueChange={(value) => handleFilterChange("status", value)}
+          >
+            <SelectTrigger className="w-[170px]">
+              <SelectValue placeholder="All Posts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Posts</SelectItem>
+              <SelectItem value="waiting_for_pickup">Waiting for Pickup</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="handled">Handled</SelectItem>
+              {contributor && (
+                <SelectItem value="my_checkouts">My Checkouts</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
 
-        <Select
-          value={filters.sentiment || "all"}
-          onValueChange={(value) => handleFilterChange("sentiment", value)}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Sentiment" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Sentiment</SelectItem>
-            <SelectItem value="positive">Positive</SelectItem>
-            <SelectItem value="neutral">Neutral</SelectItem>
-            <SelectItem value="negative">Negative</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="space-y-1.5">
+          <span className="text-xs text-muted-foreground">Sentiment</span>
+          <Select
+            value={filters.sentiment || "all"}
+            onValueChange={(value) => handleFilterChange("sentiment", value)}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="positive">Positive</SelectItem>
+              <SelectItem value="neutral">Neutral</SelectItem>
+              <SelectItem value="negative">Negative</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-        <Select
-          value={filters.hasReply || "all"}
-          onValueChange={(value) => handleFilterChange("hasReply", value)}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="MS Reply" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Posts</SelectItem>
-            <SelectItem value="true">Has Reply</SelectItem>
-            <SelectItem value="false">No Reply</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="space-y-1.5">
+          <span className="text-xs text-muted-foreground">Search</span>
+          <Input
+            placeholder="Search posts..."
+            value={filters.search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-[250px]"
+          />
+        </div>
 
-        <Select
-          value={filters.checkout || "all"}
-          onValueChange={(value) => handleFilterChange("checkout", value)}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Checkout" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Posts</SelectItem>
-            <SelectItem value="available">Available</SelectItem>
-            {contributor && (
-              <SelectItem value="my_checkouts">My Checkouts</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-
-        <Input
-          placeholder="Search posts..."
-          value={filters.search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-[250px]"
-        />
-
-        {(filters.analyzed || filters.sentiment || filters.search || filters.checkout || filters.hasReply) && (
+        {(filters.status || filters.sentiment || filters.search) && (
           <Button
             variant="ghost"
             onClick={() => {
-              const cleared = { analyzed: "", sentiment: "", search: "", checkout: "", hasReply: "" }
+              const cleared = { status: "", sentiment: "", search: "" }
               setFilters(cleared)
               loadPosts(cleared, contributor?.id)
             }}

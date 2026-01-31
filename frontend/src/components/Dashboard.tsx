@@ -18,16 +18,20 @@ import { useAuth } from "@/lib/auth-context"
 
 export function Dashboard() {
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [stats, setStats] = useState<OverviewStats | null>(null)
   const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus | null>(null)
   const [warningPosts, setWarningPosts] = useState<WarningPost[]>([])
   const [totalWarningCount, setTotalWarningCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // Wait for auth to be fully initialized before fetching data
+  // This prevents race condition where loadData fires before token getter is registered
   useEffect(() => {
-    loadData()
-  }, [isAuthenticated])
+    if (!authLoading) {
+      loadData()
+    }
+  }, [isAuthenticated, authLoading])
 
   // Auto-refresh while scraping is running
   useEffect(() => {

@@ -113,6 +113,10 @@ function AuthProviderInner({ children, backendAuthEnabled }: { children: ReactNo
         return
       }
 
+      // Reset loading state when starting to fetch user info after sign-in
+      // This ensures AuthGate shows loading spinner while we set up the token getter
+      setIsLoading(true)
+
       try {
         const token = await getAccessToken()
         if (!token) {

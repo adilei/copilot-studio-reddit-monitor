@@ -144,7 +144,10 @@ class RedditScraper:
 
     def _check_all_contributor_replies(self, db: Session):
         """Check recent posts for contributor replies."""
-        contributors = db.query(Contributor).filter(Contributor.active == True).all()
+        contributors = db.query(Contributor).filter(
+            Contributor.active == True,
+            Contributor.reddit_handle.isnot(None)
+        ).all()
         if not contributors:
             logger.info("No active contributors to check")
             return
@@ -207,7 +210,10 @@ class RedditScraper:
 
     def check_contributor_replies(self, db: Session, post_id: str):
         """Check a specific post for replies from known contributors."""
-        contributors = db.query(Contributor).filter(Contributor.active == True).all()
+        contributors = db.query(Contributor).filter(
+            Contributor.active == True,
+            Contributor.reddit_handle.isnot(None)
+        ).all()
         if not contributors:
             return
 

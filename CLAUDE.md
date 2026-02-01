@@ -277,6 +277,23 @@ See `DEPLOY_GUIDE.md` for complete deployment documentation including:
 - Deploy auth to new env: set `AUTH_ENABLED=false` first, configure aliases via API, then enable
 - **NEVER change the Azure AD client ID** on a working prod deployment
 
+### Daily Sync to EMEA
+
+For manual daily syncs to EMEA, use `daily_sync.py` (NOT `scrape_and_sync.local.sh` which only syncs to primary):
+
+```bash
+cd backend
+source venv/bin/activate
+python scripts/daily_sync.py --token YOUR_EMEA_TOKEN
+```
+
+The script:
+1. Fetches contributors from EMEA → adds missing ones locally
+2. Scrapes Reddit locally (posts + contributor replies)
+3. Syncs last 48 hours of data to EMEA
+
+Requires an auth token from the EMEA frontend (get from browser network tab or MSAL).
+
 ### GitHub Actions Scraper
 
 Reddit blocks requests from Microsoft/corporate IP ranges (403 errors). GitHub Actions runners have non-Microsoft IPs and are used as an interim solution.

@@ -12,6 +12,7 @@ cd "$FRONTEND_DIR"
 
 # EMEA Configuration
 export NEXT_PUBLIC_API_URL="https://mcs-social-api-emea.azurewebsites.net"
+export NEXT_PUBLIC_AUTH_ENABLED="true"
 export NEXT_PUBLIC_AZURE_AD_CLIENT_ID="8451fcdd-4db4-428f-8e09-e26d8fb01367"
 export NEXT_PUBLIC_AZURE_AD_TENANT_ID="72f988bf-86f1-41af-91ab-2d7cd011db47"
 
@@ -20,6 +21,7 @@ AZURE_SWA_NAME="mcs-social-web"
 echo "=== EMEA Frontend Deployment ==="
 echo "Working directory: $(pwd)"
 echo "Backend URL: $NEXT_PUBLIC_API_URL"
+echo "Auth Enabled: $NEXT_PUBLIC_AUTH_ENABLED"
 echo "Azure AD Client ID: $NEXT_PUBLIC_AZURE_AD_CLIENT_ID"
 echo "Azure AD Tenant ID: $NEXT_PUBLIC_AZURE_AD_TENANT_ID"
 echo ""

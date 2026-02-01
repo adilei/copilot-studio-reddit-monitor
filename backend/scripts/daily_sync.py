@@ -57,11 +57,14 @@ def sync_contributors_from_emea(db, headers: dict) -> int:
 
     log(f"  Found {len(emea_contributors)} contributors on EMEA")
 
-    # Get local contributors
-    local_handles = {c.reddit_handle.lower() for c in db.query(Contributor).all()}
+    # Get local contributors (only those with reddit handles)
+    local_handles = {c.reddit_handle.lower() for c in db.query(Contributor).all() if c.reddit_handle}
 
     added = 0
     for ec in emea_contributors:
+        # Skip readers (no reddit handle)
+        if not ec.get("reddit_handle"):
+            continue
         handle_lower = ec["reddit_handle"].lower()
         if handle_lower not in local_handles:
             contributor = Contributor(

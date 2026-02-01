@@ -20,6 +20,8 @@ Your Reddit handle allows the system to automatically detect when you reply on R
 
 Start your workflow by looking at the dashboard for posts that need attention.
 
+![Dashboard](screenshots/dashboard.png)
+
 **Priority items to check:**
 
 | What to Look For | Why |
@@ -39,7 +41,9 @@ When you're going to respond to a post, **checkout first** to let the team know 
 2. Click the post to open the detail view
 3. Click **Checkout to handle**
 
-This prevents duplicate responses - teammates will see the post is being worked on.
+![Posts List](screenshots/posts-list.png)
+
+This prevents duplicate responses - teammates will see the post is being worked on (notice the checkout badges showing who's handling each post).
 
 > [!TIP]
 > Filter by **Sentiment: Negative** to find frustrated users who need help most.

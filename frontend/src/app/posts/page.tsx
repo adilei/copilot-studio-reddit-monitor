@@ -138,7 +138,7 @@ function PostsContent() {
               <SelectItem value="all">All Posts</SelectItem>
               <SelectItem value="waiting_for_pickup">Waiting for Pickup</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="handled">Handled</SelectItem>
+              <SelectItem value="handled">Completed</SelectItem>
               {contributor && (
                 <SelectItem value="my_checkouts">My Checkouts</SelectItem>
               )}

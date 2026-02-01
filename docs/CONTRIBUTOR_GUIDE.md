@@ -54,6 +54,8 @@ This prevents duplicate responses - teammates will see the post is being worked 
 
 After handling a post, mark it as resolved so it's cleared from the queue.
 
+![Post Detail](screenshots/post-detail.png)
+
 Click **Mark as Done** when:
 
 - **You responded** on Reddit

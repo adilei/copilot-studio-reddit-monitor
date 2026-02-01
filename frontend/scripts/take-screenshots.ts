@@ -3,6 +3,24 @@ import { chromium } from '@playwright/test';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3002';
 const SCREENSHOT_DIR = '../docs/screenshots';
 
+async function selectContributor(page: any, name: string) {
+  const selectTrigger = page.getByRole('button', { name: /Select contributor/i });
+  if (await selectTrigger.count() > 0) {
+    await selectTrigger.click();
+    await page.waitForTimeout(150);
+    await page.keyboard.type(name.slice(0, 5), { delay: 50 });
+    await page.waitForTimeout(100);
+    const menuitem = page.getByRole('menuitem', { name: new RegExp(name, 'i') });
+    if (await menuitem.count() > 0) {
+      await menuitem.evaluate((el: HTMLElement) => {
+        el.scrollIntoView({ block: 'center', behavior: 'instant' });
+        el.click();
+      });
+      await page.waitForTimeout(300);
+    }
+  }
+}
+
 async function takeScreenshots() {
   const browser = await chromium.launch();
   const context = await browser.newContext({
@@ -11,6 +29,13 @@ async function takeScreenshots() {
   const page = await context.newPage();
 
   console.log('Taking screenshots...');
+
+  // First, select a contributor so action buttons are visible
+  await page.goto(BASE_URL);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(500);
+  console.log('0. Selecting contributor...');
+  await selectContributor(page, 'Adi');
 
   // Dashboard
   console.log('1. Dashboard');
@@ -37,12 +62,13 @@ async function takeScreenshots() {
   console.log('4. Post detail');
   await page.goto(`${BASE_URL}/posts`);
   await page.waitForLoadState('networkidle');
-  const firstPostLink = page.locator('a[href^="/posts/"]').first();
+  await page.waitForTimeout(500);
+  const firstPostLink = page.locator('a[href*="/posts/detail"]').first();
   if (await firstPostLink.count() > 0) {
     await firstPostLink.click();
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/post-detail.png`, fullPage: true });
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/post-detail.png` });
   }
 
   // Contributors

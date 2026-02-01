@@ -41,7 +41,8 @@ When you're going to respond to a post, **checkout first** to let the team know 
 
 This prevents duplicate responses - teammates will see the post is being worked on.
 
-**Tip:** Filter by **Sentiment: Negative** to find frustrated users who need help most.
+> [!TIP]
+> Filter by **Sentiment: Negative** to find frustrated users who need help most.
 
 ---
 

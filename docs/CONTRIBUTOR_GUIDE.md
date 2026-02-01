@@ -6,26 +6,22 @@ This guide explains how to use the Social Monitor to track and respond to Reddit
 
 ## Getting Started
 
-### 1. Add Your Reddit Handle
+### 1. Sign In
 
-If you've been added as a user with only your Microsoft alias, you need to add your Reddit handle to become a full contributor who can take action on posts.
+Sign in with your Microsoft account. You'll be automatically linked to your contributor profile via your Microsoft alias.
 
-1. Go to **Contributors** in the sidebar
-2. Find your name in the list
-3. Ask an admin to update your profile with your Reddit handle (e.g., `YourRedditUsername`)
+### 2. Add Your Reddit Handle
 
-Once your Reddit handle is added, the system will automatically detect when you reply to posts on Reddit and mark them as "Handled."
+If you've been added with only your Microsoft alias (as a "Reader"), you need a Reddit handle to become a full contributor who can take action on posts.
 
-### 2. Select Yourself
+Ask an admin to update your profile with your Reddit handle (e.g., `YourRedditUsername`).
 
-Click the **contributor selector** in the top-right corner and select your name from the dropdown.
+Once your Reddit handle is added:
+- You can checkout and resolve posts
+- The system will detect when you reply on Reddit and mark posts as "Handled"
+- Your responses are tracked in contributor analytics
 
 ![Contributors Page](screenshots/contributors.png)
-
-This tells the system who you are, so it can:
-- Show which posts you've checked out
-- Filter posts to "Mine" to see your active work
-- Track your responses
 
 ---
 

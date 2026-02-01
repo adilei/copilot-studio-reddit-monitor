@@ -102,10 +102,16 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
                 {post.checked_out_by_name}
               </Badge>
             )}
-            {(post.has_contributor_reply || post.resolved) && (
+            {post.has_contributor_reply && (
               <Badge className="bg-green-100 text-green-800">
                 <CheckCircle className="h-3 w-3 mr-1" />
-                Handled
+                MS Response
+              </Badge>
+            )}
+            {post.resolved && (
+              <Badge className="bg-purple-100 text-purple-800">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Resolved
               </Badge>
             )}
           </div>

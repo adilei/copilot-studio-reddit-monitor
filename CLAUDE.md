@@ -275,7 +275,7 @@ See `DEPLOY_GUIDE.md` for complete deployment documentation including:
 - Next.js `NEXT_PUBLIC_*` vars must be set at BUILD time, not via Azure app settings
 - SWA CLI defaults to preview environment; use `--env production` for prod deploys
 - Deploy auth to new env: set `AUTH_ENABLED=false` first, configure aliases via API, then enable
-- **NEVER change the Azure AD client ID** on a working prod deployment—use values from `frontend/.env.local`
+- **NEVER change the Azure AD client ID** on a working prod deployment
 
 ### GitHub Actions Scraper
 

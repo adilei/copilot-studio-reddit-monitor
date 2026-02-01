@@ -155,11 +155,9 @@ class RedditScraper:
         contributor_handles = {c.reddit_handle.lower(): c for c in contributors}
         logger.info(f"Checking replies from {len(contributors)} contributors")
 
-        # Check recent posts without contributor replies
-        posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
-        posts = db.query(Post).filter(
-            ~Post.id.in_(posts_with_replies)
-        ).order_by(Post.created_utc.desc()).limit(50).all()
+        # Check the 100 most recent posts for contributor replies
+        # (includes posts that already have some replies, in case more were added)
+        posts = db.query(Post).order_by(Post.created_utc.desc()).limit(100).all()
 
         for post in posts:
             self._check_post_replies(db, post, contributor_handles)

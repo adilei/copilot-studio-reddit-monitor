@@ -230,6 +230,9 @@ See `docs/UI_TEST_PLAN.md` for comprehensive manual testing checklist.
 - Wait 5+ minutes between scrape attempts if rate limited
 
 ### Remote Sync Feature (PR #6, #7)
+
+See `docs/SYNC_GUIDE.md` for complete sync documentation including daily workflows and scripts.
+
 - Scrape button removed from Dashboard - scraping via API/scheduler only
 - `POST /api/sync` receives data from other instances (server-to-server)
 - `python scripts/export_to_remote.py <url>` pushes local data to remote

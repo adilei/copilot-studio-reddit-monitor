@@ -303,3 +303,35 @@ To configure:
 
 **Manual trigger:**
 - Go to Actions tab → "Scrape Reddit" or "Test Reddit Access" → Run workflow
+
+### Clustering Post ID Mismatch Bug (February 2026)
+
+**Status:** Investigation complete, fix pending
+
+**Problem:** 90% of posts remain unclustered after full clustering runs.
+- EMEA stats: 252 total posts, only 24 clustered (9.6%), 228 unclustered
+- Last full clustering processed 251 posts but only created 24 mappings
+
+**Root Cause:** The LLM returns incorrect post IDs that don't match the database.
+
+In `clustering_service.py` line 314-322, mappings are only created if the post ID exists:
+```python
+for post_id in theme_data.get("post_ids", []):
+    if db.query(Post).filter(Post.id == post_id).first():  # Silent failure if no match
+        mapping = PostThemeMapping(...)
+```
+
+The prompt sends posts as `[Post 1abc123]` and expects exact IDs back, but the LLM likely:
+1. Hallucinated IDs entirely
+2. Modified IDs (case changes, truncation, typos)
+3. Combined or split IDs incorrectly
+
+**Next Steps:**
+1. Add logging to `_discover_themes_in_batch()` and `_run_full_clustering()` to capture:
+   - Post IDs sent to LLM vs post IDs returned
+   - Which IDs failed the database lookup
+2. Analyze the mismatch pattern
+3. Fix the prompt or add fuzzy matching for post IDs
+
+**Files to modify:**
+- `backend/app/services/clustering_service.py` - Add logging around lines 314-322 and 452-465

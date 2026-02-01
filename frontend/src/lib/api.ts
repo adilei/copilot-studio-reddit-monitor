@@ -84,6 +84,7 @@ export interface OverviewStats {
   warning_count: number
   in_progress_count: number
   awaiting_pickup_count: number
+  unhandled_negative_count: number
   top_subreddit: string | null
 }
 

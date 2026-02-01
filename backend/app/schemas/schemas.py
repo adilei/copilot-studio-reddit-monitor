@@ -149,6 +149,7 @@ class OverviewStats(BaseModel):
     warning_count: int = 0
     in_progress_count: int = 0
     awaiting_pickup_count: int = 0
+    unhandled_negative_count: int = 0
     top_subreddit: str | None = None
 
 

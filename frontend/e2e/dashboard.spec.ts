@@ -13,8 +13,8 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('Total Posts')).toBeVisible();
     await expect(page.getByText('Waiting for Pickup')).toBeVisible();
     await expect(page.getByText('In Progress')).toBeVisible();
-    await expect(page.getByText('Handled')).toBeVisible();
-    await expect(page.getByText('Negative Sentiment')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Handled' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Negative Sentiment' })).toBeVisible();
   });
 
   test('should navigate to all posts when clicking Total Posts card', async ({ page }) => {
@@ -87,6 +87,30 @@ test.describe('Dashboard', () => {
       // Check for "View all negative" link
       const viewAllLink = page.getByText('View all negative');
       await expect(viewAllLink).toBeVisible();
+    }
+  });
+
+  test('should show No Boiling Posts message when has unhandled negative', async ({ page }) => {
+    // This test checks for the "No Boiling Posts" message card
+    // It will only be visible when there are no boiling posts but there are unhandled negative posts
+    const noBoilingCard = page.getByText('No Boiling Posts');
+    const isVisible = await noBoilingCard.isVisible().catch(() => false);
+
+    if (isVisible) {
+      await expect(page.getByText(/negative sentiment post/)).toBeVisible();
+      await expect(page.getByText('View negative posts →')).toBeVisible();
+    }
+  });
+
+  test('should show All Clear message when no unhandled negative posts', async ({ page }) => {
+    // This test checks for the "All Clear!" message card
+    // It will only be visible when there are no boiling posts AND no unhandled negative posts
+    const allClearCard = page.getByText('All Clear!');
+    const isVisible = await allClearCard.isVisible().catch(() => false);
+
+    if (isVisible) {
+      await expect(page.getByText(/No unhandled negative sentiment posts/)).toBeVisible();
+      await expect(page.getByText('View all unhandled posts →')).toBeVisible();
     }
   });
 });

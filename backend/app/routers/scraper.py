@@ -6,7 +6,7 @@ from app.database import get_db, SessionLocal
 from app.schemas import ScrapeRequest, ScrapeStatus
 from app.services.reddit_scraper import scraper
 from app.models import Post, Analysis
-from app.auth import get_current_user
+from app.auth import get_current_user, require_contributor_write
 
 router = APIRouter(
     prefix="/api/scrape",
@@ -40,8 +40,9 @@ def trigger_scrape(
     request: ScrapeRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
-    """Trigger a manual scrape operation."""
+    """Trigger a manual scrape operation. Requires contributor access."""
     if scraper.is_running:
         return ScrapeStatus(
             is_running=True,
@@ -112,8 +113,9 @@ def run_analyze_all(reanalyze: bool = False):
 def trigger_analyze_all(
     background_tasks: BackgroundTasks,
     reanalyze: bool = False,
+    _: None = Depends(require_contributor_write),
 ):
-    """Analyze posts. Set reanalyze=true to re-run analysis on all posts."""
+    """Analyze posts. Set reanalyze=true to re-run analysis on all posts. Requires contributor access."""
     background_tasks.add_task(run_analyze_all, reanalyze=reanalyze)
     if reanalyze:
         return {"message": "Re-analysis started for ALL posts"}

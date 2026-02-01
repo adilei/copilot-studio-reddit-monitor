@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models import Contributor, ContributorReply, Post
-from app.schemas import ContributorCreate, ContributorResponse
-from app.auth import get_current_user
+from app.schemas import ContributorCreate, ContributorResponse, ReaderCreate
+from app.auth import get_current_user, require_contributor_write
 
 router = APIRouter(
     prefix="/api/contributors",
@@ -18,12 +18,16 @@ router = APIRouter(
 @router.get("", response_model=list[ContributorResponse])
 def list_contributors(
     include_inactive: bool = False,
+    include_readers: bool = False,
     db: Session = Depends(get_db),
 ):
-    """List all contributors."""
+    """List all contributors. By default, excludes readers (users with no reddit_handle)."""
     query = db.query(Contributor)
     if not include_inactive:
         query = query.filter(Contributor.active == True)
+    if not include_readers:
+        # Only return users with reddit_handle (contributors, not readers)
+        query = query.filter(Contributor.reddit_handle != None)
 
     contributors = query.all()
 
@@ -46,6 +50,7 @@ def list_contributors(
                 active=contrib.active,
                 created_at=contrib.created_at,
                 reply_count=reply_counts.get(contrib.id, 0),
+                user_type=contrib.user_type,
             )
         )
 
@@ -56,8 +61,9 @@ def list_contributors(
 def create_contributor(
     contributor: ContributorCreate,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
-    """Add a new contributor."""
+    """Add a new contributor. Requires contributor access."""
     # Check for existing handle
     existing = (
         db.query(Contributor)
@@ -68,6 +74,18 @@ def create_contributor(
         raise HTTPException(
             status_code=400, detail="Contributor with this handle already exists"
         )
+
+    # Check for existing alias if provided
+    if contributor.microsoft_alias:
+        existing_alias = (
+            db.query(Contributor)
+            .filter(Contributor.microsoft_alias == contributor.microsoft_alias)
+            .first()
+        )
+        if existing_alias:
+            raise HTTPException(
+                status_code=400, detail="User with this Microsoft alias already exists"
+            )
 
     db_contributor = Contributor(
         name=contributor.name,
@@ -88,12 +106,54 @@ def create_contributor(
         active=db_contributor.active,
         created_at=db_contributor.created_at,
         reply_count=0,
+        user_type=db_contributor.user_type,
+    )
+
+
+@router.post("/readers", response_model=ContributorResponse)
+def create_reader(
+    reader: ReaderCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
+):
+    """Add a new reader (view-only user). Requires contributor access."""
+    # Check for existing alias
+    existing = (
+        db.query(Contributor)
+        .filter(Contributor.microsoft_alias == reader.microsoft_alias)
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=400, detail="User with this Microsoft alias already exists"
+        )
+
+    db_reader = Contributor(
+        name=reader.name,
+        reddit_handle=None,  # Readers have no reddit handle
+        microsoft_alias=reader.microsoft_alias,
+        role=reader.role,
+    )
+    db.add(db_reader)
+    db.commit()
+    db.refresh(db_reader)
+
+    return ContributorResponse(
+        id=db_reader.id,
+        name=db_reader.name,
+        reddit_handle=db_reader.reddit_handle,
+        microsoft_alias=db_reader.microsoft_alias,
+        role=db_reader.role,
+        active=db_reader.active,
+        created_at=db_reader.created_at,
+        reply_count=0,
+        user_type=db_reader.user_type,
     )
 
 
 @router.get("/{contributor_id}", response_model=ContributorResponse)
 def get_contributor(contributor_id: int, db: Session = Depends(get_db)):
-    """Get a specific contributor."""
+    """Get a specific contributor or reader."""
     contributor = db.query(Contributor).filter(Contributor.id == contributor_id).first()
     if not contributor:
         raise HTTPException(status_code=404, detail="Contributor not found")
@@ -113,6 +173,7 @@ def get_contributor(contributor_id: int, db: Session = Depends(get_db)):
         active=contributor.active,
         created_at=contributor.created_at,
         reply_count=reply_count,
+        user_type=contributor.user_type,
     )
 
 
@@ -121,11 +182,47 @@ def update_contributor(
     contributor_id: int,
     updates: ContributorCreate,
     db: Session = Depends(get_db),
+    current_contributor: Contributor | None = Depends(require_contributor_write),
 ):
-    """Update a contributor."""
+    """Update a contributor. Requires contributor access."""
     contributor = db.query(Contributor).filter(Contributor.id == contributor_id).first()
     if not contributor:
         raise HTTPException(status_code=404, detail="Contributor not found")
+
+    # Prevent contributors from demoting themselves to reader
+    # (This would lock them out of write operations)
+    if current_contributor and current_contributor.id == contributor_id:
+        if contributor.reddit_handle and not updates.reddit_handle:
+            raise HTTPException(
+                status_code=400,
+                detail="You cannot remove your own reddit handle. This would convert you to a reader and lock you out."
+            )
+
+    # Check for duplicate reddit_handle if being changed
+    if updates.reddit_handle and updates.reddit_handle != contributor.reddit_handle:
+        existing = (
+            db.query(Contributor)
+            .filter(Contributor.reddit_handle == updates.reddit_handle)
+            .filter(Contributor.id != contributor_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=400, detail="Another user with this reddit handle already exists"
+            )
+
+    # Check for duplicate microsoft_alias if being changed
+    if updates.microsoft_alias and updates.microsoft_alias != contributor.microsoft_alias:
+        existing = (
+            db.query(Contributor)
+            .filter(Contributor.microsoft_alias == updates.microsoft_alias)
+            .filter(Contributor.id != contributor_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=400, detail="Another user with this Microsoft alias already exists"
+            )
 
     contributor.name = updates.name
     contributor.reddit_handle = updates.reddit_handle
@@ -149,12 +246,17 @@ def update_contributor(
         active=contributor.active,
         created_at=contributor.created_at,
         reply_count=reply_count,
+        user_type=contributor.user_type,
     )
 
 
 @router.delete("/{contributor_id}")
-def delete_contributor(contributor_id: int, db: Session = Depends(get_db)):
-    """Deactivate a contributor (soft delete)."""
+def delete_contributor(
+    contributor_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
+):
+    """Deactivate a contributor or reader (soft delete). Requires contributor access."""
     contributor = db.query(Contributor).filter(Contributor.id == contributor_id).first()
     if not contributor:
         raise HTTPException(status_code=404, detail="Contributor not found")
@@ -162,12 +264,16 @@ def delete_contributor(contributor_id: int, db: Session = Depends(get_db)):
     contributor.active = False
     db.commit()
 
-    return {"message": "Contributor deactivated"}
+    return {"message": "User deactivated"}
 
 
 @router.post("/{contributor_id}/activate")
-def activate_contributor(contributor_id: int, db: Session = Depends(get_db)):
-    """Reactivate a deactivated contributor."""
+def activate_contributor(
+    contributor_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
+):
+    """Reactivate a deactivated contributor or reader. Requires contributor access."""
     contributor = db.query(Contributor).filter(Contributor.id == contributor_id).first()
     if not contributor:
         raise HTTPException(status_code=404, detail="Contributor not found")
@@ -175,7 +281,7 @@ def activate_contributor(contributor_id: int, db: Session = Depends(get_db)):
     contributor.active = True
     db.commit()
 
-    return {"message": "Contributor activated"}
+    return {"message": "User activated"}
 
 
 @router.get("/{contributor_id}/activity")

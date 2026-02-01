@@ -48,11 +48,13 @@ export interface Analysis {
 export interface Contributor {
   id: number
   name: string
-  reddit_handle: string
+  reddit_handle: string | null  // Nullable for readers
+  microsoft_alias?: string | null
   role: string | null
   active: boolean
   created_at: string
   reply_count: number
+  user_type: "contributor" | "reader"
 }
 
 export interface ContributorReply {
@@ -204,18 +206,34 @@ export async function unresolvePost(
 
 // Contributors
 export async function getContributors(
-  includeInactive?: boolean
+  includeInactive?: boolean,
+  includeReaders?: boolean
 ): Promise<Contributor[]> {
-  const query = includeInactive ? "?include_inactive=true" : ""
+  const params = new URLSearchParams()
+  if (includeInactive) params.set("include_inactive", "true")
+  if (includeReaders) params.set("include_readers", "true")
+  const query = params.toString() ? `?${params.toString()}` : ""
   return fetchApi<Contributor[]>(`/api/contributors${query}`)
 }
 
 export async function createContributor(data: {
   name: string
   reddit_handle: string
+  microsoft_alias?: string
   role?: string
 }): Promise<Contributor> {
   return fetchApi<Contributor>("/api/contributors", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function createReader(data: {
+  name: string
+  microsoft_alias: string
+  role?: string
+}): Promise<Contributor> {
+  return fetchApi<Contributor>("/api/contributors/readers", {
     method: "POST",
     body: JSON.stringify(data),
   })

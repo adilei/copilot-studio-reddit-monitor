@@ -15,6 +15,7 @@ import {
   type ClusteringRun,
 } from "@/lib/api"
 import { RefreshCw, Play, Loader2, ChevronRight, AlertCircle } from "lucide-react"
+import { useCanPerformActions } from "@/lib/permissions"
 
 function getSeverityBadge(severity: number) {
   switch (severity) {
@@ -53,6 +54,7 @@ function ThemeRow({ theme, onClick }: { theme: HeatmapCell; onClick: () => void 
 
 export default function ClusteringPage() {
   const router = useRouter()
+  const { canPerformActions, reason: permissionReason } = useCanPerformActions()
   const [heatmapData, setHeatmapData] = useState<HeatmapResponse | null>(null)
   const [clusteringStatus, setClusteringStatus] = useState<ClusteringRun | null>(null)
   const [loading, setLoading] = useState(true)
@@ -138,7 +140,8 @@ export default function ClusteringPage() {
             variant="outline"
             size="sm"
             onClick={() => handleRunClustering("incremental")}
-            disabled={isRunning || triggering}
+            disabled={isRunning || triggering || !canPerformActions}
+            title={!canPerformActions ? permissionReason ?? undefined : undefined}
           >
             {triggering ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -151,7 +154,8 @@ export default function ClusteringPage() {
             variant="default"
             size="sm"
             onClick={() => handleRunClustering("full")}
-            disabled={isRunning || triggering}
+            disabled={isRunning || triggering || !canPerformActions}
+            title={!canPerformActions ? permissionReason ?? undefined : undefined}
           >
             {triggering ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -238,7 +242,11 @@ export default function ClusteringPage() {
             <p className="text-muted-foreground mb-4">
               No themes discovered yet. Run analysis to identify recurring issues from posts.
             </p>
-            <Button onClick={() => handleRunClustering("full")} disabled={isRunning || triggering}>
+            <Button
+              onClick={() => handleRunClustering("full")}
+              disabled={isRunning || triggering || !canPerformActions}
+              title={!canPerformActions ? permissionReason ?? undefined : undefined}
+            >
               {triggering ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (

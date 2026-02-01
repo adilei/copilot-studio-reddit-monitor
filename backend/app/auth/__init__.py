@@ -4,6 +4,7 @@ from app.auth.dependencies import (
     get_current_user,
     get_current_user_optional,
     require_contributor,
+    require_contributor_write,
     require_service_principal,
     extract_alias_from_upn,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "get_current_user",
     "get_current_user_optional",
     "require_contributor",
+    "require_contributor_write",
     "require_service_principal",
     "extract_alias_from_upn",
     "validate_token",

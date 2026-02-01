@@ -156,3 +156,56 @@ async def require_service_principal(
         )
 
     return claims
+
+
+async def require_contributor_write(
+    claims: dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Contributor | None:
+    """
+    Require the authenticated user to be a contributor with write access.
+
+    A contributor has write access if they have a reddit_handle.
+    Users with only microsoft_alias (no reddit_handle) are "readers" and cannot write.
+
+    Returns the Contributor if found and has write access.
+    Raises 403 if user is a reader (no reddit_handle).
+    """
+    settings = get_settings()
+
+    # If auth is disabled, return None (caller should handle this)
+    if not settings.auth_enabled or claims.get("auth_disabled"):
+        return None
+
+    # Get UPN from token
+    upn = claims.get("preferred_username") or claims.get("email")
+    alias = extract_alias_from_upn(upn)
+
+    if not alias:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot determine user identity from token",
+        )
+
+    # Look up contributor by alias
+    contributor = (
+        db.query(Contributor)
+        .filter(Contributor.microsoft_alias == alias)
+        .filter(Contributor.active == True)
+        .first()
+    )
+
+    if not contributor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User '{alias}' is not a registered contributor",
+        )
+
+    # Check if user is a reader (no reddit_handle)
+    if not contributor.reddit_handle:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Readers cannot perform this action. Contact an admin to upgrade your access.",
+        )
+
+    return contributor

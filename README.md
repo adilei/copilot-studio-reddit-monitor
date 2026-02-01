@@ -1,6 +1,6 @@
 # Copilot Studio Reddit Monitor
 
-**Version 1.1.0**
+**Version 2.0.0**
 
 A full-stack application to monitor Reddit discussions about Microsoft Copilot Studio, analyze sentiment using LLMs, and track Microsoft contributor engagement.
 
@@ -78,6 +78,7 @@ Track Microsoft employees who respond to Reddit posts:
 - Automatic detection when contributors reply to posts
 - Posts auto-marked as "Handled" when a contributor responds
 - Reply count tracking per contributor
+- **Activity analytics** - Click a contributor name to view reply trends, response time distribution, and handled posts breakdown
 
 ### Analytics Dashboard
 Visualize sentiment trends and engagement metrics:
@@ -88,6 +89,33 @@ Visualize sentiment trends and engagement metrics:
 - **Subreddit Breakdown** - Post distribution by source
 - **Status Distribution** - Pending/Analyzed/Handled breakdown
 - **Contributor Leaderboard** - Most active responders
+
+### Pain Point Clustering
+Discover recurring themes and pain points across posts using LLM analysis:
+
+![Clustering Heatmap](docs/screenshots/clustering-heatmap.png)
+
+- **Automatic theme discovery** - LLM analyzes posts in batches to identify common issues
+- **Product area categorization** - Themes grouped by product area (Authentication, Connectors, etc.)
+- **Severity ratings** - Each theme rated 1-5 for prioritization
+- **Heatmap visualization** - See theme frequency and severity at a glance
+- **Incremental analysis** - New posts automatically assigned to existing themes
+
+### Post Resolution
+Mark posts as "done" when they no longer need attention:
+
+- **Resolve posts** - Click "Mark as Done" when a post has been addressed or vetted
+- **Reopen posts** - Resolved posts can be reopened if follow-up is needed
+- **Status filter** - Filter posts by Open, Resolved, or show all
+- **Separate from MS Response** - Resolution is independent of whether MS has replied
+
+### Reader Access (v2.0.0)
+Add view-only users who can monitor without performing actions:
+
+- **Reader user type** - Users with Microsoft alias but no Reddit handle
+- **Full read access** - Can view all pages, posts, analytics, and themes
+- **No write access** - Cannot checkout, resolve, analyze, or manage users
+- **Easy conversion** - Add a Reddit handle to convert reader to contributor
 
 ## Tech Stack
 
@@ -304,6 +332,34 @@ For production deployment to Azure:
 ---
 
 ## Version History
+
+### v2.0.0 (2026-02-01)
+
+#### What's New
+
+- **Reader user type** - Add view-only users who can see all content (posts, analytics, themes) but cannot perform write actions like checkout, resolve, or run analysis. Readers have a Microsoft alias but no Reddit handle.
+
+- **Post resolution workflow** - Mark posts as "done" or "vetted" when they no longer need attention. Resolved posts can be filtered and reopened if needed.
+
+- **Unified status filter** - New combined filter for post workflow status: All, Open, Mine (checked out by me), Resolved
+
+- **Contributor activity analytics** - View individual contributor activity with reply trends, response time distribution, and handled posts breakdown. Access from the Contributors page by clicking on a contributor name.
+
+- **Pain point clustering** - LLM analyzes posts to discover recurring themes and pain points. Themes are grouped by product area with severity ratings. View the heatmap on the Clustering page.
+
+- **Azure AD authentication** - Secure the application with Microsoft Entra ID (Azure AD). Users sign in with their Microsoft account and are automatically linked to their contributor profile via Microsoft alias.
+
+- **Dashboard improvements** - Empty states for boiling posts section, better data freshness indicators
+
+#### Screenshots
+
+**Contributor Activity Analytics**
+![Contributor Activity](docs/screenshots/contributors.png)
+
+**Pain Point Clustering Heatmap**
+![Clustering Heatmap](docs/screenshots/clustering-heatmap.png)
+
+---
 
 ### v1.1.0 (2026-01-24)
 

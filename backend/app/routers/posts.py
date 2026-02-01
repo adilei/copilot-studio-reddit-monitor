@@ -5,7 +5,7 @@ from typing import Literal
 from datetime import datetime
 
 from app.database import get_db
-from app.models import Post, Analysis, Contributor
+from app.models import Post, Analysis, Contributor, PostThemeMapping
 from app.schemas import (
     PostResponse,
     PostDetail,
@@ -40,6 +40,7 @@ def list_posts(
     has_reply: bool | None = None,
     resolved: bool | None = None,
     status: Literal["waiting_for_pickup", "in_progress", "handled"] | None = None,
+    clustered: bool | None = None,
     db: Session = Depends(get_db),
 ):
     """List posts with filtering and pagination."""
@@ -72,6 +73,12 @@ def list_posts(
             query = query.filter(Post.resolved == 1)
         else:
             query = query.filter(Post.resolved == 0)
+    if clustered is not None:
+        clustered_post_ids = db.query(PostThemeMapping.post_id).distinct().subquery()
+        if clustered:
+            query = query.filter(Post.id.in_(clustered_post_ids))
+        else:
+            query = query.filter(~Post.id.in_(clustered_post_ids))
     # Unified status filter (workflow states)
     if status:
         from app.models import ContributorReply

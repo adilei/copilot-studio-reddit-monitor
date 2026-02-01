@@ -10,7 +10,7 @@ class Contributor(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
-    reddit_handle = Column(String, unique=True, nullable=False, index=True)
+    reddit_handle = Column(String, unique=True, nullable=True, index=True)  # Nullable for readers
     microsoft_alias = Column(String, unique=True, nullable=True, index=True)  # e.g., 'johndoe' from johndoe@microsoft.com
     role = Column(String)  # PM, Engineer, etc.
     active = Column(Boolean, default=True)
@@ -18,6 +18,16 @@ class Contributor(Base):
 
     # Relationships
     replies = relationship("ContributorReply", back_populates="contributor", cascade="all, delete-orphan")
+
+    @property
+    def user_type(self) -> str:
+        """Returns 'reader' if no reddit_handle, 'contributor' otherwise."""
+        return "reader" if not self.reddit_handle else "contributor"
+
+    @property
+    def is_reader(self) -> bool:
+        """Returns True if this user is a reader (no reddit_handle)."""
+        return not self.reddit_handle
 
 
 class ContributorReply(Base):

@@ -59,6 +59,25 @@ async function takeScreenshots() {
   await page.waitForTimeout(1000);
   await page.screenshot({ path: `${SCREENSHOT_DIR}/analytics.png`, fullPage: true });
 
+  // Pain Point Clustering / Heatmap
+  console.log('7. Clustering Heatmap');
+  await page.goto(`${BASE_URL}/clustering`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: `${SCREENSHOT_DIR}/clustering-heatmap.png`, fullPage: true });
+
+  // Contributor Activity Detail (first contributor)
+  console.log('8. Contributor Activity');
+  await page.goto(`${BASE_URL}/contributors`);
+  await page.waitForLoadState('networkidle');
+  const firstContributorLink = page.locator('a[href^="/contributors/detail"]').first();
+  if (await firstContributorLink.count() > 0) {
+    await firstContributorLink.click();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/contributor-activity.png`, fullPage: true });
+  }
+
   await browser.close();
   console.log('Screenshots saved to docs/screenshots/');
 }

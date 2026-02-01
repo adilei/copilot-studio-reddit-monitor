@@ -95,6 +95,19 @@ def get_overview_stats(db: Session = Depends(get_db)):
         or 0
     )
 
+    # Unhandled negative count - posts with negative sentiment that are not handled
+    # (no contributor reply AND not resolved)
+    unhandled_negative_count = (
+        db.query(func.count(func.distinct(Analysis.post_id)))
+        .join(latest_analysis, Analysis.id == latest_analysis.c.max_id)
+        .join(Post, Post.id == Analysis.post_id)
+        .filter(Analysis.sentiment == "negative")
+        .filter(~Post.id.in_(posts_with_replies))
+        .filter(Post.resolved == 0)
+        .scalar()
+        or 0
+    )
+
     # In progress count - posts that are checked out AND not handled
     in_progress_count = (
         db.query(func.count(Post.id))
@@ -118,6 +131,7 @@ def get_overview_stats(db: Session = Depends(get_db)):
         warning_count=warning_count,
         in_progress_count=in_progress_count,
         awaiting_pickup_count=awaiting_pickup_count,
+        unhandled_negative_count=unhandled_negative_count,
         top_subreddit=top_subreddit,
     )
 

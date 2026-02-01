@@ -13,8 +13,10 @@ import {
   type ProductArea,
 } from "@/lib/api"
 import { Plus, Edit, Trash2, Save, X, GripVertical } from "lucide-react"
+import { useCanPerformActions } from "@/lib/permissions"
 
 export default function ProductAreasPage() {
+  const { canPerformActions, reason: permissionReason } = useCanPerformActions()
   const [productAreas, setProductAreas] = useState<ProductArea[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -127,7 +129,11 @@ export default function ProductAreasPage() {
             Manage product areas for categorizing pain themes
           </p>
         </div>
-        <Button onClick={() => setCreating(true)} disabled={creating}>
+        <Button
+          onClick={() => setCreating(true)}
+          disabled={creating || !canPerformActions}
+          title={!canPerformActions ? permissionReason ?? undefined : undefined}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Product Area
         </Button>
@@ -161,7 +167,11 @@ export default function ProductAreasPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handleCreate} disabled={saving}>
+              <Button
+                onClick={handleCreate}
+                disabled={saving || !canPerformActions}
+                title={!canPerformActions ? permissionReason ?? undefined : undefined}
+              >
                 <Save className="h-4 w-4 mr-1" />
                 {saving ? "Creating..." : "Create"}
               </Button>
@@ -255,6 +265,8 @@ export default function ProductAreasPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => startEditing(pa)}
+                        disabled={!canPerformActions}
+                        title={!canPerformActions ? permissionReason ?? undefined : undefined}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -263,6 +275,8 @@ export default function ProductAreasPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDelete(pa.id)}
+                          disabled={!canPerformActions}
+                          title={!canPerformActions ? permissionReason ?? undefined : undefined}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -271,6 +285,8 @@ export default function ProductAreasPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleToggleActive(pa)}
+                          disabled={!canPerformActions}
+                          title={!canPerformActions ? permissionReason ?? undefined : undefined}
                         >
                           Activate
                         </Button>

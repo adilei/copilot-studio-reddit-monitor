@@ -17,7 +17,7 @@ from app.schemas import (
     ContributorReplyResponse,
 )
 from app.services.llm_analyzer import analyzer
-from app.auth import get_current_user
+from app.auth import get_current_user, require_contributor_write
 
 router = APIRouter(
     prefix="/api/posts",
@@ -227,8 +227,12 @@ def get_post_analyses(post_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{post_id}/analyze", response_model=AnalysisResponse)
-async def analyze_post(post_id: str, db: Session = Depends(get_db)):
-    """Trigger LLM analysis for a specific post."""
+async def analyze_post(
+    post_id: str,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
+):
+    """Trigger LLM analysis for a specific post. Requires contributor access."""
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -245,6 +249,7 @@ def checkout_post(
     post_id: str,
     checkout_request: PostCheckoutRequest,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
     """Checkout a post for handling."""
     post = db.query(Post).filter(Post.id == post_id).first()
@@ -300,6 +305,7 @@ def release_post(
     post_id: str,
     release_request: PostReleaseRequest,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
     """Release a checked out post."""
     post = db.query(Post).filter(Post.id == post_id).first()
@@ -382,6 +388,7 @@ def resolve_post(
     post_id: str,
     resolve_request: PostResolveRequest,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
     """Mark a post as resolved/vetted by a contributor."""
     post = db.query(Post).filter(Post.id == post_id).first()
@@ -408,6 +415,7 @@ def unresolve_post(
     post_id: str,
     unresolve_request: PostUnresolveRequest,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
     """Mark a post as unresolved (reopen it)."""
     post = db.query(Post).filter(Post.id == post_id).first()

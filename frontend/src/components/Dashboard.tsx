@@ -158,7 +158,7 @@ export function Dashboard() {
       </div>
 
       {/* Boiling Posts tile */}
-      {totalWarningCount > 0 && (
+      {totalWarningCount > 0 ? (
         <Card className="border-orange-200 bg-orange-50/50">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -198,6 +198,46 @@ export function Dashboard() {
                   </p>
                 </Link>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (stats?.unhandled_negative_count ?? 0) > 0 ? (
+        <Card className="border-yellow-200 bg-yellow-50/50">
+          <CardContent className="pt-6 pb-4">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-yellow-800">No Boiling Posts</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                No urgent issues, but {stats?.unhandled_negative_count} negative sentiment post{(stats?.unhandled_negative_count ?? 0) !== 1 ? 's' : ''} still need attention.
+              </p>
+              <Link
+                href="/posts?sentiment=negative"
+                className="text-sm text-yellow-700 hover:text-yellow-900 hover:underline mt-2 inline-block"
+              >
+                View negative posts →
+              </Link>
+              <div className="mt-4">
+                <img src="/yellow-cat.png" alt="Cat taking notes" className="h-48 mx-auto" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-green-200 bg-green-50/50">
+          <CardContent className="pt-6 pb-4">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-green-800">All Clear!</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                No unhandled negative sentiment posts. Great job keeping up with the community!
+              </p>
+              <Link
+                href="/posts?status=waiting_for_pickup"
+                className="text-sm text-green-600 hover:text-green-800 hover:underline mt-2 inline-block"
+              >
+                View all unhandled posts →
+              </Link>
+              <div className="mt-4">
+                <img src="/green-cat.png" alt="Happy cat celebrating" className="h-48 mx-auto" />
+              </div>
             </div>
           </CardContent>
         </Card>

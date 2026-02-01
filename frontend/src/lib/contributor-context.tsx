@@ -18,6 +18,7 @@ interface ContributorContextType {
   setContributor: (contributor: Contributor | null) => void
   loading: boolean
   isAutoLinked: boolean
+  isReader: boolean
 }
 
 const ContributorContext = createContext<ContributorContextType | undefined>(
@@ -25,11 +26,18 @@ const ContributorContext = createContext<ContributorContextType | undefined>(
 )
 
 export function ContributorProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading, authEnabled } = useAuth()
   const [contributor, setContributorState] = useState<Contributor | null>(null)
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
   const [isAutoLinked, setIsAutoLinked] = useState(false)
+
+  // Compute isReader based on context:
+  // - When auth enabled: use user.isReader from auth context
+  // - When auth disabled: compute from selected contributor
+  const isReader = isAuthenticated && user
+    ? user.isReader
+    : contributor?.reddit_handle === null
 
   useEffect(() => {
     // Wait for auth to be fully initialized before fetching contributors
@@ -37,7 +45,9 @@ export function ContributorProvider({ children }: { children: ReactNode }) {
 
     async function loadContributors() {
       try {
-        const data = await getContributors()
+        // When auth is disabled, include readers so users can test reader behavior
+        const includeReaders = !authEnabled
+        const data = await getContributors(false, includeReaders)
         setContributors(data)
 
         // If user is authenticated and has a linked contributor, auto-select it
@@ -69,7 +79,7 @@ export function ContributorProvider({ children }: { children: ReactNode }) {
     }
 
     loadContributors()
-  }, [isAuthenticated, authLoading, user?.contributorId])
+  }, [isAuthenticated, authLoading, authEnabled, user?.contributorId])
 
   function setContributor(contributor: Contributor | null) {
     // Don't allow changing if auto-linked via auth
@@ -85,7 +95,7 @@ export function ContributorProvider({ children }: { children: ReactNode }) {
 
   return (
     <ContributorContext.Provider
-      value={{ contributor, contributors, setContributor, loading, isAutoLinked }}
+      value={{ contributor, contributors, setContributor, loading, isAutoLinked, isReader }}
     >
       {children}
     </ContributorContext.Provider>

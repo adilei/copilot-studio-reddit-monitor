@@ -6,18 +6,22 @@ import { getContributors, type Contributor } from "@/lib/api"
 
 export default function ContributorsPage() {
   const [contributors, setContributors] = useState<Contributor[]>([])
+  const [readers, setReaders] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadContributors()
+    loadUsers()
   }, [])
 
-  async function loadContributors() {
+  async function loadUsers() {
     try {
-      const data = await getContributors()
-      setContributors(data)
+      // Load all users including readers
+      const data = await getContributors(false, true)
+      // Separate contributors (have reddit_handle) and readers (no reddit_handle)
+      setContributors(data.filter((c) => c.reddit_handle))
+      setReaders(data.filter((c) => !c.reddit_handle))
     } catch (error) {
-      console.error("Failed to load contributors:", error)
+      console.error("Failed to load users:", error)
     } finally {
       setLoading(false)
     }
@@ -36,7 +40,11 @@ export default function ContributorsPage() {
         </p>
       </div>
 
-      <ContributorList contributors={contributors} onUpdate={loadContributors} />
+      <ContributorList
+        contributors={contributors}
+        readers={readers}
+        onUpdate={loadUsers}
+      />
     </div>
   )
 }

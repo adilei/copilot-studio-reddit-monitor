@@ -38,6 +38,8 @@ export interface AuthUser {
   alias: string | null
   contributorId: number | null
   contributorName: string | null
+  userType: "contributor" | "reader" | null
+  isReader: boolean
 }
 
 interface AuthContextType {
@@ -140,6 +142,8 @@ function AuthProviderInner({ children, backendAuthEnabled }: { children: ReactNo
             alias: data.alias,
             contributorId: data.contributor_id,
             contributorName: data.contributor_name,
+            userType: data.user_type || null,
+            isReader: data.is_reader || false,
           })
         } else {
           // User is authenticated with Azure AD but backend rejected
@@ -150,6 +154,8 @@ function AuthProviderInner({ children, backendAuthEnabled }: { children: ReactNo
             alias: account.username?.split("@")[0] || null,
             contributorId: null,
             contributorName: null,
+            userType: null,
+            isReader: false,
           })
         }
       } catch (error) {
@@ -162,6 +168,8 @@ function AuthProviderInner({ children, backendAuthEnabled }: { children: ReactNo
           alias: account.username?.split("@")[0] || null,
           contributorId: null,
           contributorName: null,
+          userType: null,
+          isReader: false,
         })
       } finally {
         setIsLoading(false)

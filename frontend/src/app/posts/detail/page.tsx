@@ -16,6 +16,7 @@ import {
   type PostDetail,
 } from "@/lib/api"
 import { useContributor } from "@/lib/contributor-context"
+import { useCanPerformActions } from "@/lib/permissions"
 import { formatDate, formatRelativeTime } from "@/lib/utils"
 import {
   ArrowLeft,
@@ -44,6 +45,7 @@ function PostDetailContent() {
   const router = useRouter()
   const id = searchParams.get("id")
   const { contributor } = useContributor()
+  const { canPerformActions, reason: permissionReason } = useCanPerformActions()
 
   const [post, setPost] = useState<PostDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -276,7 +278,12 @@ function PostDetailContent() {
                 </Badge>
               )}
             </div>
-            <Button onClick={handleAnalyze} disabled={analyzing} variant="outline">
+            <Button
+              onClick={handleAnalyze}
+              disabled={analyzing || !canPerformActions}
+              variant="outline"
+              title={!canPerformActions ? permissionReason ?? undefined : undefined}
+            >
               <Sparkles className="h-4 w-4 mr-2" />
               {analyzing ? "Analyzing..." : post.is_analyzed ? "Re-analyze" : "Analyze"}
             </Button>
@@ -299,7 +306,8 @@ function PostDetailContent() {
                   size="sm"
                   variant="outline"
                   onClick={handleRelease}
-                  disabled={checkingOut}
+                  disabled={checkingOut || !canPerformActions}
+                  title={!canPerformActions ? permissionReason ?? undefined : undefined}
                 >
                   <Unlock className="h-4 w-4 mr-1" />
                   Release
@@ -319,7 +327,7 @@ function PostDetailContent() {
                 )}
               </div>
             )}
-            {!post.checked_out_by && contributor && (
+            {!post.checked_out_by && canPerformActions && contributor && (
               <Button
                 variant="outline"
                 onClick={handleCheckout}
@@ -329,9 +337,9 @@ function PostDetailContent() {
                 Checkout to handle
               </Button>
             )}
-            {!post.checked_out_by && !contributor && (
+            {!post.checked_out_by && !canPerformActions && (
               <div className="text-sm text-muted-foreground">
-                Select a contributor in the sidebar to checkout this post
+                {permissionReason || "Select a contributor in the sidebar to checkout this post"}
               </div>
             )}
           </div>
@@ -350,7 +358,7 @@ function PostDetailContent() {
                     {formatRelativeTime(post.resolved_at)}
                   </span>
                 )}
-                {contributor && (
+                {canPerformActions && contributor && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -364,7 +372,7 @@ function PostDetailContent() {
               </div>
             ) : (
               <>
-                {contributor ? (
+                {canPerformActions && contributor ? (
                   <Button
                     variant="outline"
                     onClick={handleResolve}
@@ -375,7 +383,7 @@ function PostDetailContent() {
                   </Button>
                 ) : (
                   <span className="text-sm text-muted-foreground">
-                    Select a contributor to mark this post as done
+                    {permissionReason || "Select a contributor to mark this post as done"}
                   </span>
                 )}
               </>

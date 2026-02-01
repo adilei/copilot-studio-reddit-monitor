@@ -47,13 +47,44 @@ def run_migrations():
     with engine.connect() as conn:
         # Check if microsoft_alias column exists on contributors table
         result = conn.execute(text("PRAGMA table_info(contributors)"))
-        contributor_columns = [row[1] for row in result.fetchall()]
+        contributor_columns = {row[1]: row for row in result.fetchall()}
 
         if "microsoft_alias" not in contributor_columns:
             conn.execute(
                 text("ALTER TABLE contributors ADD COLUMN microsoft_alias VARCHAR")
             )
             conn.commit()
+
+        # Check if reddit_handle is nullable (notnull=0 means nullable)
+        # SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+        if "reddit_handle" in contributor_columns:
+            reddit_handle_info = contributor_columns["reddit_handle"]
+            # row format: (cid, name, type, notnull, dflt_value, pk)
+            is_not_null = reddit_handle_info[3] == 1
+            if is_not_null:
+                # Need to recreate table with nullable reddit_handle
+                conn.execute(text("""
+                    CREATE TABLE contributors_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name VARCHAR NOT NULL,
+                        reddit_handle VARCHAR UNIQUE,
+                        microsoft_alias VARCHAR UNIQUE,
+                        role VARCHAR,
+                        active BOOLEAN DEFAULT 1,
+                        created_at DATETIME
+                    )
+                """))
+                conn.execute(text("""
+                    INSERT INTO contributors_new (id, name, reddit_handle, microsoft_alias, role, active, created_at)
+                    SELECT id, name, reddit_handle, microsoft_alias, role, active, created_at
+                    FROM contributors
+                """))
+                conn.execute(text("DROP TABLE contributors"))
+                conn.execute(text("ALTER TABLE contributors_new RENAME TO contributors"))
+                # Recreate indexes
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_contributors_reddit_handle ON contributors (reddit_handle)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_contributors_microsoft_alias ON contributors (microsoft_alias)"))
+                conn.commit()
 
         # Check if resolution columns exist on posts table
         result = conn.execute(text("PRAGMA table_info(posts)"))

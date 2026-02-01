@@ -16,6 +16,7 @@ import {
 } from "@/lib/api"
 import { formatDate, formatRelativeTime } from "@/lib/utils"
 import { ArrowLeft, Edit, Save, X } from "lucide-react"
+import { useCanPerformActions } from "@/lib/permissions"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -71,6 +72,7 @@ function ThemeDetailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = searchParams.get("id")
+  const { canPerformActions, reason: permissionReason } = useCanPerformActions()
 
   const [theme, setTheme] = useState<ThemeDetail | null>(null)
   const [productAreas, setProductAreas] = useState<ProductArea[]>([])
@@ -249,6 +251,8 @@ function ThemeDetailContent() {
                   variant="outline"
                   size="sm"
                   onClick={() => setEditing(true)}
+                  disabled={!canPerformActions}
+                  title={!canPerformActions ? permissionReason ?? undefined : undefined}
                 >
                   <Edit className="h-4 w-4 mr-1" />
                   Edit

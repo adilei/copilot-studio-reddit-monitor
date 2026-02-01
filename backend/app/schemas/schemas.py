@@ -101,13 +101,21 @@ class AnalysisBase(BaseModel):
 # Contributor schemas
 class ContributorBase(BaseModel):
     name: str
-    reddit_handle: str
+    reddit_handle: str | None = None  # Nullable for readers
     microsoft_alias: str | None = None  # e.g., 'johndoe' from johndoe@microsoft.com
     role: str | None = None
 
 
 class ContributorCreate(ContributorBase):
-    pass
+    """Create a contributor (requires reddit_handle)."""
+    reddit_handle: str  # Required for contributors
+
+
+class ReaderCreate(BaseModel):
+    """Create a reader (no reddit_handle, requires microsoft_alias)."""
+    name: str
+    microsoft_alias: str  # Required for readers
+    role: str | None = None
 
 
 class ContributorResponse(ContributorBase):
@@ -115,6 +123,7 @@ class ContributorResponse(ContributorBase):
     active: bool
     created_at: datetime
     reply_count: int = 0
+    user_type: str = "contributor"  # "contributor" or "reader"
 
     class Config:
         from_attributes = True
@@ -149,6 +158,7 @@ class OverviewStats(BaseModel):
     warning_count: int = 0
     in_progress_count: int = 0
     awaiting_pickup_count: int = 0
+    unhandled_negative_count: int = 0
     top_subreddit: str | None = None
 
 

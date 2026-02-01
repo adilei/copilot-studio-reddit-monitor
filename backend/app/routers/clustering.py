@@ -15,7 +15,7 @@ from app.schemas import (
     ThemePostSummary,
     ThemeDetailResponse,
 )
-from app.auth import get_current_user
+from app.auth import get_current_user, require_contributor_write
 
 router = APIRouter(
     prefix="/api/clustering",
@@ -29,8 +29,9 @@ def trigger_clustering_run(
     request: ClusteringRunCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
-    """Trigger a new clustering run (full or incremental)."""
+    """Trigger a new clustering run (full or incremental). Requires contributor access."""
     # Check if a clustering run is already in progress
     existing_run = (
         db.query(ClusteringRun)
@@ -73,8 +74,11 @@ def trigger_clustering_run(
 
 
 @router.post("/recalculate-severity")
-def recalculate_severity(db: Session = Depends(get_db)):
-    """Recalculate severity for all active themes based on post sentiments."""
+def recalculate_severity(
+    db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
+):
+    """Recalculate severity for all active themes based on post sentiments. Requires contributor access."""
     from app.services.clustering_service import clustering_service
 
     active_themes = db.query(PainTheme).filter(PainTheme.is_active == True).all()
@@ -232,8 +236,9 @@ def update_theme(
     theme_id: int,
     updates: PainThemeUpdate,
     db: Session = Depends(get_db),
+    _: None = Depends(require_contributor_write),
 ):
-    """Update a pain theme (name, description, severity, product area)."""
+    """Update a pain theme (name, description, severity, product area). Requires contributor access."""
     theme = db.query(PainTheme).filter(PainTheme.id == theme_id).first()
     if not theme:
         raise HTTPException(status_code=404, detail="Theme not found")

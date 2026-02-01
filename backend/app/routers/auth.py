@@ -22,6 +22,8 @@ class CurrentUserResponse(BaseModel):
     alias: str | None = None
     contributor_id: int | None = None
     contributor_name: str | None = None
+    user_type: str | None = None  # "contributor" or "reader"
+    is_reader: bool = False
 
 
 @router.get("/me", response_model=CurrentUserResponse)
@@ -32,7 +34,7 @@ async def get_me(
     """
     Get current authenticated user info.
 
-    Returns user claims and linked contributor (if any).
+    Returns user claims and linked contributor/reader (if any).
     """
     # Auth disabled case
     if claims.get("auth_disabled"):
@@ -42,9 +44,11 @@ async def get_me(
     name = claims.get("name")
     alias = extract_alias_from_upn(email)
 
-    # Try to find linked contributor
+    # Try to find linked contributor/reader
     contributor_id = None
     contributor_name = None
+    user_type = None
+    is_reader = False
 
     if alias:
         contributor = (
@@ -56,6 +60,8 @@ async def get_me(
         if contributor:
             contributor_id = contributor.id
             contributor_name = contributor.name
+            user_type = contributor.user_type
+            is_reader = contributor.is_reader
 
     return CurrentUserResponse(
         authenticated=True,
@@ -64,4 +70,6 @@ async def get_me(
         alias=alias,
         contributor_id=contributor_id,
         contributor_name=contributor_name,
+        user_type=user_type,
+        is_reader=is_reader,
     )

@@ -143,6 +143,7 @@ export async function getPosts(params?: {
   has_reply?: boolean
   resolved?: boolean
   status?: "waiting_for_pickup" | "in_progress" | "handled"
+  clustered?: boolean
 }): Promise<Post[]> {
   const searchParams = new URLSearchParams()
   if (params) {
@@ -430,6 +431,7 @@ export interface HeatmapResponse {
   rows: HeatmapRow[]
   total_themes: number
   total_posts: number
+  unclustered_count: number
   last_clustering_run: ClusteringRun | null
 }
 

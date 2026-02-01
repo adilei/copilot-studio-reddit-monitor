@@ -396,9 +396,16 @@ def get_heatmap(db: Session = Depends(get_db)):
             error_message=latest_run.error_message,
         )
 
+    # Calculate unclustered posts count
+    total_posts_in_db = db.query(func.count(Post.id)).scalar()
+    clustered_post_ids = db.query(PostThemeMapping.post_id).distinct()
+    clustered_count = clustered_post_ids.count()
+    unclustered_count = total_posts_in_db - clustered_count
+
     return HeatmapResponse(
         rows=rows,
         total_themes=total_themes,
         total_posts=total_posts,
+        unclustered_count=unclustered_count,
         last_clustering_run=last_run_response,
     )

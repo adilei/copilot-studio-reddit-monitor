@@ -33,6 +33,7 @@ function PostsContent() {
     status: "", // "waiting_for_pickup" | "in_progress" | "handled" | "my_checkouts" | ""
     sentiment: "",
     search: "",
+    clustered: null as boolean | null, // true, false, or null (all)
   })
   const initialLoadDone = useRef(false)
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -52,6 +53,7 @@ function PostsContent() {
 
       if (currentFilters.sentiment) params.sentiment = currentFilters.sentiment
       if (currentFilters.search) params.search = currentFilters.search
+      if (currentFilters.clustered !== null) params.clustered = currentFilters.clustered
 
       const data = await getPosts(params)
       setPosts(data)
@@ -74,7 +76,10 @@ function PostsContent() {
         status = "handled"
       }
     }
-    const newFilters = { status, sentiment, search: filters.search }
+    // Parse clustered param
+    const clusteredParam = searchParams.get("clustered")
+    const clustered = clusteredParam === "true" ? true : clusteredParam === "false" ? false : null
+    const newFilters = { status, sentiment, search: filters.search, clustered }
     setFilters(newFilters)
     loadPosts(newFilters, contributor?.id)
     initialLoadDone.current = true
@@ -112,9 +117,13 @@ function PostsContent() {
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Posts</h1>
+          <h1 className="text-2xl font-bold">
+            {filters.clustered === false ? "Unclustered Posts" : "Posts"}
+          </h1>
           <p className="text-muted-foreground">
-            Browse and manage scraped Reddit posts
+            {filters.clustered === false
+              ? "Posts not yet assigned to a theme"
+              : "Browse and manage scraped Reddit posts"}
           </p>
         </div>
         <Button onClick={() => loadPosts(filters, contributor?.id)} variant="outline">
@@ -174,11 +183,11 @@ function PostsContent() {
           />
         </div>
 
-        {(filters.status || filters.sentiment || filters.search) && (
+        {(filters.status || filters.sentiment || filters.search || filters.clustered !== null) && (
           <Button
             variant="ghost"
             onClick={() => {
-              const cleared = { status: "", sentiment: "", search: "" }
+              const cleared = { status: "", sentiment: "", search: "", clustered: null }
               setFilters(cleared)
               loadPosts(cleared, contributor?.id)
             }}

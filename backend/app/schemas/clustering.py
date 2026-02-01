@@ -131,6 +131,7 @@ class HeatmapResponse(BaseModel):
     rows: list[HeatmapRow] = []
     total_themes: int = 0
     total_posts: int = 0
+    unclustered_count: int = 0
     last_clustering_run: ClusteringRunResponse | None = None
 
 

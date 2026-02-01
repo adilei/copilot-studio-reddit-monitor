@@ -199,6 +199,7 @@ export default function ClusteringPage() {
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
           <span>{heatmapData.total_themes} themes</span>
           <span>{heatmapData.total_posts} posts categorized</span>
+          <span>{heatmapData.unclustered_count} unclustered</span>
           {heatmapData.last_clustering_run && (
             <span>
               Last analyzed: {new Date(heatmapData.last_clustering_run.completed_at!).toLocaleString()}
@@ -235,6 +236,33 @@ export default function ClusteringPage() {
               </CardContent>
             </Card>
           ))}
+
+          {/* Unclustered Posts */}
+          {heatmapData.unclustered_count > 0 && (
+            <Card className="border-dashed">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium text-muted-foreground">
+                    Unclustered
+                  </CardTitle>
+                  <span className="text-sm text-muted-foreground">
+                    {heatmapData.unclustered_count} posts
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Link
+                  href="/posts?clustered=false"
+                  className="flex items-center justify-between p-3 hover:bg-accent rounded-lg transition-colors"
+                >
+                  <span className="text-muted-foreground">
+                    Posts not yet assigned to a theme
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              </CardContent>
+            </Card>
+          )}
         </div>
       ) : (
         <Card>

@@ -311,6 +311,8 @@ class ClusteringService:
             created_theme_ids.append(theme.id)
 
             # Create post mappings
+            mapped_count = 0
+            failed_ids = []
             for post_id in theme_data.get("post_ids", []):
                 # Verify post exists
                 if db.query(Post).filter(Post.id == post_id).first():
@@ -320,6 +322,13 @@ class ClusteringService:
                         confidence=1.0,
                     )
                     db.add(mapping)
+                    mapped_count += 1
+                else:
+                    failed_ids.append(post_id)
+
+            if failed_ids:
+                logger.warning(f"[CLUSTERING DEBUG] Theme '{theme_data['theme_name']}': {len(failed_ids)} post IDs not found in DB: {failed_ids}")
+            logger.info(f"[CLUSTERING DEBUG] Theme '{theme_data['theme_name']}': {mapped_count} posts mapped successfully")
 
             themes_created += 1
 
@@ -336,7 +345,12 @@ class ClusteringService:
         clustering_run.completed_at = datetime.utcnow()
         db.commit()
 
-        logger.info(f"Full clustering completed: {len(posts)} posts, {themes_created} themes")
+        # Calculate total mappings created
+        total_mappings = db.query(PostThemeMapping).filter(
+            PostThemeMapping.theme_id.in_(created_theme_ids)
+        ).count()
+
+        logger.info(f"Full clustering completed: {len(posts)} posts, {themes_created} themes, {total_mappings} mappings created")
 
     async def _run_incremental_clustering(self, db, clustering_run: ClusteringRun):
         """Incremental clustering: assign new posts to existing themes."""
@@ -451,6 +465,10 @@ class ClusteringService:
 
     async def _discover_themes_in_batch(self, posts: list[Post]) -> list[dict] | None:
         """Discover themes in a batch of posts."""
+        # Track post IDs sent to LLM
+        sent_post_ids = {post.id for post in posts}
+        logger.info(f"[CLUSTERING DEBUG] Sending {len(sent_post_ids)} posts to LLM: {sorted(sent_post_ids)}")
+
         posts_text = "\n\n".join([
             f"[Post {post.id}]\nTitle: {post.title}\nBody: {post.body or '(no body)'}"
             for post in posts
@@ -460,6 +478,23 @@ class ClusteringService:
         result = await self._call_llm(prompt)
 
         if result and "themes" in result:
+            # Log post IDs returned by LLM
+            returned_post_ids = set()
+            for theme in result["themes"]:
+                for pid in theme.get("post_ids", []):
+                    returned_post_ids.add(pid)
+
+            logger.info(f"[CLUSTERING DEBUG] LLM returned {len(returned_post_ids)} post IDs: {sorted(returned_post_ids)}")
+
+            # Check for mismatches
+            missing_from_response = sent_post_ids - returned_post_ids
+            extra_in_response = returned_post_ids - sent_post_ids
+
+            if missing_from_response:
+                logger.warning(f"[CLUSTERING DEBUG] Post IDs sent but NOT returned by LLM: {sorted(missing_from_response)}")
+            if extra_in_response:
+                logger.warning(f"[CLUSTERING DEBUG] Post IDs returned by LLM but NOT sent: {sorted(extra_in_response)}")
+
             return result["themes"]
         logger.warning(f"LLM returned unexpected result: {result}")
         return None

@@ -1,6 +1,7 @@
 import httpx
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Literal
 
@@ -11,6 +12,9 @@ from app.database import SessionLocal
 from app.models import Post, ProductArea, PainTheme, PostThemeMapping, ClusteringRun, Analysis
 
 logger = logging.getLogger(__name__)
+
+# Enable debug logging via env var: CLUSTERING_DEBUG=true
+CLUSTERING_DEBUG = os.getenv("CLUSTERING_DEBUG", "").lower() in ("true", "1", "yes")
 
 BATCH_SIZE = 20  # Posts per batch for LLM analysis
 
@@ -326,9 +330,10 @@ class ClusteringService:
                 else:
                     failed_ids.append(post_id)
 
-            if failed_ids:
-                logger.warning(f"[CLUSTERING DEBUG] Theme '{theme_data['theme_name']}': {len(failed_ids)} post IDs not found in DB: {failed_ids}")
-            logger.info(f"[CLUSTERING DEBUG] Theme '{theme_data['theme_name']}': {mapped_count} posts mapped successfully")
+            if CLUSTERING_DEBUG:
+                if failed_ids:
+                    logger.warning(f"[CLUSTERING DEBUG] Theme '{theme_data['theme_name']}': {len(failed_ids)} post IDs not found in DB: {failed_ids}")
+                logger.info(f"[CLUSTERING DEBUG] Theme '{theme_data['theme_name']}': {mapped_count} posts mapped successfully")
 
             themes_created += 1
 
@@ -467,7 +472,8 @@ class ClusteringService:
         """Discover themes in a batch of posts."""
         # Track post IDs sent to LLM
         sent_post_ids = {post.id for post in posts}
-        logger.info(f"[CLUSTERING DEBUG] Sending {len(sent_post_ids)} posts to LLM: {sorted(sent_post_ids)}")
+        if CLUSTERING_DEBUG:
+            logger.info(f"[CLUSTERING DEBUG] Sending {len(sent_post_ids)} posts to LLM: {sorted(sent_post_ids)}")
 
         posts_text = "\n\n".join([
             f"[Post {post.id}]\nTitle: {post.title}\nBody: {post.body or '(no body)'}"
@@ -478,22 +484,23 @@ class ClusteringService:
         result = await self._call_llm(prompt)
 
         if result and "themes" in result:
-            # Log post IDs returned by LLM
-            returned_post_ids = set()
-            for theme in result["themes"]:
-                for pid in theme.get("post_ids", []):
-                    returned_post_ids.add(pid)
+            if CLUSTERING_DEBUG:
+                # Log post IDs returned by LLM
+                returned_post_ids = set()
+                for theme in result["themes"]:
+                    for pid in theme.get("post_ids", []):
+                        returned_post_ids.add(pid)
 
-            logger.info(f"[CLUSTERING DEBUG] LLM returned {len(returned_post_ids)} post IDs: {sorted(returned_post_ids)}")
+                logger.info(f"[CLUSTERING DEBUG] LLM returned {len(returned_post_ids)} post IDs: {sorted(returned_post_ids)}")
 
-            # Check for mismatches
-            missing_from_response = sent_post_ids - returned_post_ids
-            extra_in_response = returned_post_ids - sent_post_ids
+                # Check for mismatches
+                missing_from_response = sent_post_ids - returned_post_ids
+                extra_in_response = returned_post_ids - sent_post_ids
 
-            if missing_from_response:
-                logger.warning(f"[CLUSTERING DEBUG] Post IDs sent but NOT returned by LLM: {sorted(missing_from_response)}")
-            if extra_in_response:
-                logger.warning(f"[CLUSTERING DEBUG] Post IDs returned by LLM but NOT sent: {sorted(extra_in_response)}")
+                if missing_from_response:
+                    logger.warning(f"[CLUSTERING DEBUG] Post IDs sent but NOT returned by LLM: {sorted(missing_from_response)}")
+                if extra_in_response:
+                    logger.warning(f"[CLUSTERING DEBUG] Post IDs returned by LLM but NOT sent: {sorted(extra_in_response)}")
 
             return result["themes"]
         logger.warning(f"LLM returned unexpected result: {result}")

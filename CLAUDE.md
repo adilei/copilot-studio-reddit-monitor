@@ -350,5 +350,10 @@ The prompt sends posts as `[Post 1abc123]` and expects exact IDs back, but the L
 2. Analyze the mismatch pattern
 3. Fix the prompt or add fuzzy matching for post IDs
 
+**Investigation can be done locally** - local backend is configured against Azure OpenAI, so we can:
+- Run clustering locally: `POST http://localhost:8000/api/clustering/run` with `{"run_type": "full"}`
+- Check local DB for results
+- Add logging and iterate quickly without deploying to EMEA
+
 **Files to modify:**
 - `backend/app/services/clustering_service.py` - Add logging around lines 314-322 and 452-465

@@ -75,12 +75,16 @@ Return a JSON object with this structure:
 CRITICAL: The post_ids array MUST contain the exact IDs from the [Post XXX] markers in the input above.
 For example, if the input contains "[Post 1qpia0c]", then use "1qpia0c" in post_ids.
 
-Important:
+CRITICAL REQUIREMENTS:
+- EVERY post MUST appear in exactly ONE theme's post_ids array - NO EXCEPTIONS
+- If you're unsure which theme a post belongs to, assign it to the theme with the closest match
+- Even low-confidence matches MUST be included - do not drop any posts
+- If a post truly doesn't fit any theme, create a "General questions and discussions" theme and assign it there
 - Group posts where users have the same GOAL (what they want to accomplish)
-- Each post should be assigned to exactly ONE theme - its PRIMARY pain point
 - If a post mentions multiple issues, identify the MAIN frustration and assign to that theme only
-- Include general questions and feature requests as themes
-- Every post must map to exactly one theme
+- Include general questions, feature requests, and success stories as valid themes
+
+VERIFICATION: Before responding, count the post IDs in your response. It MUST equal {post_count} (the number of posts in the input).
 
 Respond ONLY with the JSON object."""
 
@@ -144,12 +148,15 @@ Return a JSON object with this structure:
     ]
 }}
 
-Notes:
+CRITICAL REQUIREMENTS:
+- EVERY post MUST appear either in an assignment OR in a new_theme's post_ids - NO EXCEPTIONS
+- Even low-confidence matches (0.3+) MUST be included in assignments - do not drop any posts
+- If a post truly doesn't fit any existing theme, create a new theme for it
 - Each post should be assigned to exactly ONE theme (its PRIMARY pain point)
-- confidence should be 0.0-1.0
-- Only suggest new_themes if the post describes a user goal not covered by existing themes
-- Most posts should map to existing themes
+- confidence should be 0.0-1.0 (use lower confidence for uncertain matches, but still include them)
 - General questions and feature requests are valid themes
+
+VERIFICATION: Before responding, count the post IDs in your response. It MUST equal {post_count} (the number of posts in the input).
 
 Respond ONLY with the JSON object."""
 
@@ -480,7 +487,7 @@ class ClusteringService:
             for post in posts
         ])
 
-        prompt = BATCH_CLUSTERING_PROMPT.format(posts_text=posts_text)
+        prompt = BATCH_CLUSTERING_PROMPT.format(posts_text=posts_text, post_count=len(posts))
         result = await self._call_llm(prompt)
 
         if result and "themes" in result:
@@ -531,6 +538,7 @@ class ClusteringService:
         prompt = INCREMENTAL_ASSIGNMENT_PROMPT.format(
             themes_text=themes_text,
             posts_text=posts_text,
+            post_count=len(posts),
         )
 
         return await self._call_llm(prompt)

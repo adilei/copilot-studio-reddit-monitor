@@ -18,7 +18,21 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Progress tracking
+TOTAL_STEPS=0
+CURRENT_STEP=0
+
+step() {
+    CURRENT_STEP=$((CURRENT_STEP + 1))
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}[$CURRENT_STEP/$TOTAL_STEPS]${NC} ${YELLOW}$1${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
 
 # EMEA Configuration
 RESOURCE_GROUP="mcs-social-rg"
@@ -82,80 +96,83 @@ else
     done
 fi
 
-echo -e "${GREEN}=== EMEA Deployment ===${NC}"
+# Calculate total steps based on what's being deployed
+# Azure check (1) + backend (3: package, deploy, cleanup) + frontend (2: build, deploy)
+TOTAL_STEPS=1  # Azure CLI check
+if [ "$DEPLOY_BACKEND" = true ]; then
+    TOTAL_STEPS=$((TOTAL_STEPS + 3))
+fi
+if [ "$DEPLOY_FRONTEND" = true ]; then
+    TOTAL_STEPS=$((TOTAL_STEPS + 2))
+fi
+
+echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║              EMEA Deployment                               ║${NC}"
+echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 echo "Project root: $PROJECT_ROOT"
 echo "Deploy backend: $DEPLOY_BACKEND"
 echo "Deploy frontend: $DEPLOY_FRONTEND"
-echo ""
+echo "Total steps: $TOTAL_STEPS"
 
 # Check Azure CLI login
-echo "Checking Azure CLI login..."
+step "Checking Azure CLI login"
 if ! az account show &>/dev/null; then
     echo -e "${RED}ERROR: Not logged into Azure CLI. Run 'az login' first.${NC}"
     exit 1
 fi
-echo -e "${GREEN}Azure CLI logged in${NC}"
-echo ""
+echo -e "${GREEN}✓ Azure CLI logged in${NC}"
 
 # Deploy Backend
 if [ "$DEPLOY_BACKEND" = true ]; then
-    echo -e "${YELLOW}=== Deploying Backend ===${NC}"
-    echo "App Service: $BACKEND_APP_NAME"
-    echo "Resource Group: $RESOURCE_GROUP"
-    echo ""
-
     cd "$PROJECT_ROOT/backend"
 
-    # Create deployment zip
-    echo "Creating deployment package..."
+    step "Creating backend deployment package"
+    echo "App Service: $BACKEND_APP_NAME"
     rm -f deploy.zip
-    zip -r deploy.zip app migrations requirements.txt -x "*.pyc" -x "__pycache__/*" -x "*.egg-info/*"
+    zip -rq deploy.zip app migrations requirements.txt -x "*.pyc" -x "__pycache__/*" -x "*.egg-info/*"
+    echo -e "${GREEN}✓ Package created${NC}"
 
-    # Deploy to Azure
-    echo "Deploying to Azure App Service..."
+    step "Deploying backend to Azure App Service"
     az webapp deploy \
         --resource-group "$RESOURCE_GROUP" \
         --name "$BACKEND_APP_NAME" \
         --src-path deploy.zip \
         --type zip
+    echo -e "${GREEN}✓ Backend deployed: $BACKEND_URL${NC}"
 
-    # Cleanup
+    step "Cleaning up backend artifacts"
     rm -f deploy.zip
-
-    echo -e "${GREEN}Backend deployed: $BACKEND_URL${NC}"
-    echo ""
+    echo -e "${GREEN}✓ Cleanup complete${NC}"
 fi
 
 # Deploy Frontend
 if [ "$DEPLOY_FRONTEND" = true ]; then
-    echo -e "${YELLOW}=== Deploying Frontend ===${NC}"
-    echo "Static Web App: $FRONTEND_SWA_NAME"
-    echo "API URL: $NEXT_PUBLIC_API_URL"
-    echo ""
-
     cd "$PROJECT_ROOT/frontend"
 
-    # Build
-    echo "Building frontend..."
+    step "Building frontend"
+    echo "API URL: $NEXT_PUBLIC_API_URL"
     npm run build
+    echo -e "${GREEN}✓ Build complete${NC}"
 
-    # Deploy
-    echo "Deploying to Azure Static Web Apps..."
+    step "Deploying frontend to Azure Static Web Apps"
     echo "n" | npx @azure/static-web-apps-cli deploy ./out \
         --env production \
         --app-name "$FRONTEND_SWA_NAME"
-
-    echo -e "${GREEN}Frontend deployed: $FRONTEND_URL${NC}"
-    echo ""
+    echo -e "${GREEN}✓ Frontend deployed: $FRONTEND_URL${NC}"
 fi
 
 # Summary
-echo -e "${GREEN}=== Deployment Complete ===${NC}"
+echo ""
+echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║              Deployment Complete! 🚀                       ║${NC}"
+echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 if [ "$DEPLOY_BACKEND" = true ]; then
-    echo "Backend:  $BACKEND_URL"
-    echo "API Docs: $BACKEND_URL/docs"
+    echo -e "  ${CYAN}Backend${NC}:  $BACKEND_URL"
+    echo -e "  ${CYAN}API Docs${NC}: $BACKEND_URL/docs"
 fi
 if [ "$DEPLOY_FRONTEND" = true ]; then
-    echo "Frontend: $FRONTEND_URL"
+    echo -e "  ${CYAN}Frontend${NC}: $FRONTEND_URL"
 fi
 echo ""

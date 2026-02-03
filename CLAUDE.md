@@ -308,6 +308,34 @@ See `DEPLOY_GUIDE.md` for complete deployment documentation including:
 | Backend | https://mcs-social-api-emea.azurewebsites.net |
 | API Docs | https://mcs-social-api-emea.azurewebsites.net/docs |
 
+**Deployment Script:**
+
+Use `scripts/deploy-emea.sh` to deploy to EMEA:
+
+```bash
+# Deploy both backend and frontend
+./scripts/deploy-emea.sh
+
+# Deploy backend only
+./scripts/deploy-emea.sh --backend
+
+# Deploy frontend only
+./scripts/deploy-emea.sh --frontend
+
+# Show help
+./scripts/deploy-emea.sh --help
+```
+
+Prerequisites:
+- Must be logged into Azure CLI (`az login`)
+- For frontend: Node.js and npm installed
+- For backend: Python packages in requirements.txt
+
+The script automatically:
+- Sets correct `NEXT_PUBLIC_*` environment variables for frontend build
+- Creates deployment zip for backend
+- Deploys to the correct Azure resources
+
 **Quick tips:**
 - SQLAlchemy `create_all()` won't add columns to existing tables—use `run_migrations()` in `database.py`
 - Next.js `NEXT_PUBLIC_*` vars must be set at BUILD time, not via Azure app settings

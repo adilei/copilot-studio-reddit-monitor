@@ -16,7 +16,14 @@ import {
   type PainTheme,
   type ProductArea,
 } from "@/lib/api"
-import { RefreshCw, Play, Loader2, ChevronRight, AlertCircle, X, Check } from "lucide-react"
+import { RefreshCw, Play, Loader2, ChevronRight, AlertCircle, X, Check, Settings, ChevronDown, ChevronUp } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useCanPerformActions } from "@/lib/permissions"
 import {
   Popover,
@@ -188,6 +195,32 @@ function ClusteringPageContent() {
   const [selectedProductAreaIds, setSelectedProductAreaIds] = useState<number[]>([])
   const [unclusteredCount, setUnclusteredCount] = useState(0)
 
+  // Settings state
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [minPostCount, setMinPostCount] = useState(2)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('clustering_settings')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (parsed.minPostCount) setMinPostCount(parsed.minPostCount)
+      } catch (e) {
+        // Ignore invalid JSON
+      }
+    }
+    setSettingsLoaded(true)
+  }, [])
+
+  // Save settings to localStorage when changed (only after initial load)
+  useEffect(() => {
+    if (settingsLoaded) {
+      localStorage.setItem('clustering_settings', JSON.stringify({ minPostCount }))
+    }
+  }, [minPostCount, settingsLoaded])
+
   // Parse URL params for initial filter state
   useEffect(() => {
     const paIdsParam = searchParams.get("product_area_ids")
@@ -277,12 +310,16 @@ function ClusteringPageContent() {
 
   const isRunning = clusteringStatus?.status === "running"
 
-  // Count stats
-  const totalPosts = themes.reduce((sum, t) => sum + t.post_count, 0)
+  // Filter themes by minimum post count
+  const visibleThemes = themes.filter(t => t.post_count >= minPostCount)
+  const hiddenThemeCount = themes.length - visibleThemes.length
 
-  // Compute theme counts per product area (from product_area_tags)
+  // Count stats (from visible themes only)
+  const totalPosts = visibleThemes.reduce((sum, t) => sum + t.post_count, 0)
+
+  // Compute theme counts per product area (from visible themes' product_area_tags)
   const themeCounts: Record<number, number> = {}
-  themes.forEach((theme) => {
+  visibleThemes.forEach((theme) => {
     if (theme.product_area_tags) {
       theme.product_area_tags.forEach((tag) => {
         themeCounts[tag.id] = (themeCounts[tag.id] || 0) + 1
@@ -369,6 +406,56 @@ function ClusteringPageContent() {
         </Card>
       )}
 
+      {/* Settings Panel */}
+      <div className="border rounded-lg">
+        <button
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors"
+        >
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Settings className="h-4 w-4" />
+            Settings
+            {hiddenThemeCount > 0 && (
+              <span className="text-muted-foreground font-normal">
+                (hiding {hiddenThemeCount} {hiddenThemeCount === 1 ? 'theme' : 'themes'})
+              </span>
+            )}
+          </div>
+          {settingsOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+        {settingsOpen && (
+          <div className="p-4 border-t bg-muted/30">
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium">Minimum posts per theme:</label>
+              <Select
+                value={minPostCount.toString()}
+                onValueChange={(val) => setMinPostCount(parseInt(val))}
+              >
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                </SelectContent>
+              </Select>
+              {hiddenThemeCount > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  Hiding {hiddenThemeCount} {hiddenThemeCount === 1 ? 'theme' : 'themes'} with fewer posts
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Filter and Stats Row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -392,7 +479,7 @@ function ClusteringPageContent() {
           )}
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>{themes.length} themes</span>
+          <span>{visibleThemes.length} themes</span>
           <span>{totalPosts} posts</span>
           {clusteringStatus?.completed_at && (
             <span>
@@ -424,9 +511,9 @@ function ClusteringPageContent() {
       )}
 
       {/* Theme Cards */}
-      {themes.length > 0 ? (
+      {visibleThemes.length > 0 ? (
         <div className="space-y-3">
-          {themes.map((theme) => (
+          {visibleThemes.map((theme) => (
             <ThemeCard
               key={theme.id}
               theme={theme}
@@ -437,7 +524,11 @@ function ClusteringPageContent() {
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            {selectedProductAreaIds.length > 0 ? (
+            {hiddenThemeCount > 0 && themes.length > 0 ? (
+              <p className="text-muted-foreground">
+                No themes match current settings. Try lowering the minimum posts threshold.
+              </p>
+            ) : selectedProductAreaIds.length > 0 ? (
               <p className="text-muted-foreground">
                 No themes found for selected product areas.
               </p>

@@ -96,6 +96,14 @@ def run_migrations():
             conn.execute(text("ALTER TABLE posts ADD COLUMN resolved_by INTEGER REFERENCES contributors(id)"))
             conn.commit()
 
+        # Check if product_area_id column exists on analyses table
+        result = conn.execute(text("PRAGMA table_info(analyses)"))
+        analysis_columns = [row[1] for row in result.fetchall()]
+
+        if "product_area_id" not in analysis_columns:
+            conn.execute(text("ALTER TABLE analyses ADD COLUMN product_area_id INTEGER REFERENCES product_areas(id)"))
+            conn.commit()
+
 
 def seed_product_areas():
     """Seed default product areas if they don't exist."""

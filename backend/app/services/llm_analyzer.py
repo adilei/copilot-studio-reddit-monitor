@@ -5,11 +5,12 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 from app.config import get_settings
-from app.models import Post, Analysis
+from app.models import Post, Analysis, ProductArea
 
 logger = logging.getLogger(__name__)
 
-ANALYSIS_PROMPT = """Analyze this Reddit post about Microsoft Copilot Studio:
+# Base prompt template - product areas are inserted dynamically
+ANALYSIS_PROMPT_TEMPLATE = """Analyze this Reddit post about Microsoft Copilot Studio:
 
 Title: {title}
 Content: {body}
@@ -33,12 +34,16 @@ Additionally, set is_warning=true if the user exhibits ANY of these escalation s
 A polite help request or "how do I do X?" question is NEUTRAL, not negative.
 Note: A post can be politely written but still warrant is_warning=true if the user is considering abandoning the product.
 
+Identify which Copilot Studio product area this post is PRIMARILY about (pick the single best match):
+{product_areas_list}
+
 Provide a JSON response:
 {{
     "summary": "A 2-3 sentence summary",
     "sentiment": "positive" | "neutral" | "negative",
     "sentiment_score": <-1.0 to 1.0>,
-    "is_warning": true | false
+    "is_warning": true | false,
+    "product_area_id": <product area ID or null if unclear/general>
 }}
 
 Respond ONLY with the JSON object."""
@@ -47,13 +52,55 @@ Respond ONLY with the JSON object."""
 class LLMAnalyzer:
     def __init__(self):
         self.settings = get_settings()
+        self._product_areas_cache = None
+        self._cache_time = None
+
+    def _get_product_areas(self, db: Session) -> list[ProductArea]:
+        """Get active product areas from database with caching."""
+        from datetime import timedelta
+
+        # Cache for 5 minutes to avoid repeated DB queries
+        now = datetime.utcnow()
+        if (self._product_areas_cache is not None and
+            self._cache_time is not None and
+            now - self._cache_time < timedelta(minutes=5)):
+            return self._product_areas_cache
+
+        product_areas = (
+            db.query(ProductArea)
+            .filter(ProductArea.is_active == True)
+            .order_by(ProductArea.display_order)
+            .all()
+        )
+        self._product_areas_cache = product_areas
+        self._cache_time = now
+        return product_areas
+
+    def _build_product_areas_list(self, product_areas: list[ProductArea]) -> str:
+        """Build the product areas section of the prompt."""
+        lines = []
+        for pa in product_areas:
+            # Use first part of description (before first period) as short description
+            short_desc = pa.description.split('.')[0] if pa.description else pa.name
+            lines.append(f"{pa.id} = {pa.name} ({short_desc})")
+        return "\n".join(lines)
+
+    def _get_valid_product_area_ids(self, product_areas: list[ProductArea]) -> set[int]:
+        """Get set of valid product area IDs."""
+        return {pa.id for pa in product_areas}
 
     async def analyze_post(self, db: Session, post: Post) -> Analysis | None:
         """Analyze a post using the configured LLM provider."""
         try:
-            prompt = ANALYSIS_PROMPT.format(
+            # Get product areas dynamically from database
+            product_areas = self._get_product_areas(db)
+            product_areas_list = self._build_product_areas_list(product_areas)
+            valid_pa_ids = self._get_valid_product_area_ids(product_areas)
+
+            prompt = ANALYSIS_PROMPT_TEMPLATE.format(
                 title=post.title,
                 body=post.body or "(no body text)",
+                product_areas_list=product_areas_list,
             )
 
             if self.settings.llm_provider == "ollama":
@@ -66,6 +113,12 @@ class LLMAnalyzer:
             if result is None:
                 return None
 
+            # Validate product_area_id against actual database IDs
+            product_area_id = result.get("product_area_id")
+            if product_area_id is not None and product_area_id not in valid_pa_ids:
+                logger.warning(f"Invalid product_area_id {product_area_id} returned by LLM, setting to None")
+                product_area_id = None
+
             # Create analysis record
             analysis = Analysis(
                 post_id=post.id,
@@ -74,6 +127,7 @@ class LLMAnalyzer:
                 sentiment_score=result.get("sentiment_score"),
                 is_warning=result.get("is_warning", False),
                 key_issues=result.get("key_issues"),
+                product_area_id=product_area_id,
                 analyzed_at=datetime.utcnow(),
                 model_used=model_used,
             )
@@ -82,7 +136,7 @@ class LLMAnalyzer:
             db.commit()
             db.refresh(analysis)
 
-            logger.info(f"Analyzed post {post.id}: {result['sentiment']}")
+            logger.info(f"Analyzed post {post.id}: {result['sentiment']}, product_area={product_area_id}")
             return analysis
 
         except Exception as e:
@@ -185,12 +239,19 @@ class LLMAnalyzer:
             if sentiment not in ["positive", "neutral", "negative"]:
                 sentiment = "neutral"
 
+            # Get product_area_id (validation against DB happens in analyze_post)
+            product_area_id = data.get("product_area_id")
+            if product_area_id is not None:
+                if not isinstance(product_area_id, int):
+                    product_area_id = None
+
             return {
                 "summary": data["summary"],
                 "sentiment": sentiment,
                 "sentiment_score": data.get("sentiment_score"),
                 "is_warning": data.get("is_warning", False),
                 "key_issues": data.get("key_issues"),
+                "product_area_id": product_area_id,
             }
 
         except json.JSONDecodeError as e:

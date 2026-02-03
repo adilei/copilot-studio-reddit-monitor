@@ -1,21 +1,29 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
-  getHeatmapData,
   getClusteringStatus,
   triggerClusteringRun,
-  type HeatmapResponse,
-  type HeatmapCell,
+  getThemes,
+  getProductAreas,
+  getHeatmapData,
   type ClusteringRun,
+  type PainTheme,
+  type ProductArea,
 } from "@/lib/api"
-import { RefreshCw, Play, Loader2, ChevronRight, AlertCircle } from "lucide-react"
+import { RefreshCw, Play, Loader2, ChevronRight, AlertCircle, X, Check } from "lucide-react"
 import { useCanPerformActions } from "@/lib/permissions"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 
 function getSeverityBadge(severity: number) {
   switch (severity) {
@@ -34,35 +42,174 @@ function getSeverityBadge(severity: number) {
   }
 }
 
-function ThemeRow({ theme, onClick }: { theme: HeatmapCell; onClick: () => void }) {
+function ThemeCard({ theme, onClick }: { theme: PainTheme; onClick: () => void }) {
   return (
-    <button
+    <Card
+      className="cursor-pointer hover:bg-accent/50 transition-colors"
       onClick={onClick}
-      className="w-full flex items-center justify-between p-3 hover:bg-accent rounded-lg transition-colors text-left"
     >
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {getSeverityBadge(theme.severity)}
-        <span className="truncate">{theme.theme_name}</span>
-      </div>
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <span className="text-sm">{theme.post_count} posts</span>
-        <ChevronRight className="h-4 w-4" />
-      </div>
-    </button>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-center gap-3">
+              {getSeverityBadge(theme.severity)}
+              <h3 className="font-medium">{theme.name}</h3>
+            </div>
+            {theme.description && (
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {theme.description}
+              </p>
+            )}
+            {theme.product_area_tags && theme.product_area_tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {theme.product_area_tags.map((tag) => (
+                  <Badge
+                    key={tag.id}
+                    variant="secondary"
+                    className="text-xs font-normal"
+                  >
+                    {tag.name}
+                    <span className="ml-1 text-muted-foreground">({tag.post_count})</span>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+            <span className="text-sm">{theme.post_count} posts</span>
+            <ChevronRight className="h-4 w-4" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
-export default function ClusteringPage() {
+function MultiSelectFilter({
+  options,
+  selected,
+  onChange,
+  themeCounts,
+  placeholder = "Filter by product area",
+}: {
+  options: ProductArea[]
+  selected: number[]
+  onChange: (ids: number[]) => void
+  themeCounts: Record<number, number>  // product_area_id -> theme count
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+
+  const toggleOption = (id: number) => {
+    if (selected.includes(id)) {
+      onChange(selected.filter((s) => s !== id))
+    } else {
+      onChange([...selected, id])
+    }
+  }
+
+  const selectedNames = options
+    .filter((o) => selected.includes(o.id))
+    .map((o) => o.name)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="min-w-[200px] justify-start"
+        >
+          {selected.length === 0 ? (
+            <span className="text-muted-foreground">{placeholder}</span>
+          ) : selected.length === 1 ? (
+            <span className="truncate">{selectedNames[0]}</span>
+          ) : (
+            <span>{selected.length} areas selected</span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <div className="max-h-[300px] overflow-y-auto">
+          {options.map((option) => {
+            const isSelected = selected.includes(option.id)
+            const count = themeCounts[option.id] || 0
+            return (
+              <button
+                key={option.id}
+                onClick={() => toggleOption(option.id)}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left",
+                  isSelected && "bg-accent/50"
+                )}
+              >
+                <div className={cn(
+                  "h-4 w-4 border rounded flex items-center justify-center shrink-0",
+                  isSelected ? "bg-primary border-primary" : "border-input"
+                )}>
+                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <span className="flex-1 truncate">{option.name}</span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {count} {count === 1 ? "theme" : "themes"}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        {selected.length > 0 && (
+          <div className="border-t p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => onChange([])}
+            >
+              Clear all
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function ClusteringPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { canPerformActions, reason: permissionReason } = useCanPerformActions()
-  const [heatmapData, setHeatmapData] = useState<HeatmapResponse | null>(null)
+
+  const [themes, setThemes] = useState<PainTheme[]>([])
   const [clusteringStatus, setClusteringStatus] = useState<ClusteringRun | null>(null)
   const [loading, setLoading] = useState(true)
   const [triggering, setTriggering] = useState(false)
 
+  // Product area filter state
+  const [productAreas, setProductAreas] = useState<ProductArea[]>([])
+  const [selectedProductAreaIds, setSelectedProductAreaIds] = useState<number[]>([])
+  const [unclusteredCount, setUnclusteredCount] = useState(0)
+
+  // Parse URL params for initial filter state
   useEffect(() => {
-    loadData()
+    const paIdsParam = searchParams.get("product_area_ids")
+    if (paIdsParam) {
+      const ids = paIdsParam.split(",").map(Number).filter(Boolean)
+      setSelectedProductAreaIds(ids)
+    }
+    loadInitialData()
   }, [])
+
+  // Load themes when filter changes
+  useEffect(() => {
+    loadThemes()
+    // Update URL
+    if (selectedProductAreaIds.length > 0) {
+      const params = new URLSearchParams()
+      params.set("product_area_ids", selectedProductAreaIds.join(","))
+      router.replace(`/clustering?${params.toString()}`, { scroll: false })
+    } else {
+      router.replace("/clustering", { scroll: false })
+    }
+  }, [selectedProductAreaIds])
 
   // Poll for status while clustering is running
   useEffect(() => {
@@ -71,25 +218,39 @@ export default function ClusteringPage() {
         const status = await getClusteringStatus()
         setClusteringStatus(status)
         if (status?.status !== "running") {
-          loadData()
+          loadThemes()
         }
       }, 3000)
       return () => clearInterval(interval)
     }
   }, [clusteringStatus?.status])
 
-  async function loadData() {
+  async function loadInitialData() {
     try {
-      const [heatmap, status] = await Promise.all([
-        getHeatmapData(),
+      const [status, areas, heatmapData] = await Promise.all([
         getClusteringStatus(),
+        getProductAreas(),
+        getHeatmapData(),
       ])
-      setHeatmapData(heatmap)
       setClusteringStatus(status)
+      setProductAreas(areas)
+      setUnclusteredCount(heatmapData.unclustered_count)
+      await loadThemes()
     } catch (error) {
       console.error("Failed to load clustering data:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadThemes() {
+    try {
+      const themesData = await getThemes({
+        product_area_ids: selectedProductAreaIds.length > 0 ? selectedProductAreaIds : undefined,
+      })
+      setThemes(themesData)
+    } catch (error) {
+      console.error("Failed to load themes:", error)
     }
   }
 
@@ -116,8 +277,22 @@ export default function ClusteringPage() {
 
   const isRunning = clusteringStatus?.status === "running"
 
+  // Count stats
+  const totalPosts = themes.reduce((sum, t) => sum + t.post_count, 0)
+
+  // Compute theme counts per product area (from product_area_tags)
+  const themeCounts: Record<number, number> = {}
+  themes.forEach((theme) => {
+    if (theme.product_area_tags) {
+      theme.product_area_tags.forEach((tag) => {
+        themeCounts[tag.id] = (themeCounts[tag.id] || 0) + 1
+      })
+    }
+  })
+
   return (
     <div className="p-8 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Themes</h1>
@@ -130,7 +305,7 @@ export default function ClusteringPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => loadData()}
+            onClick={() => loadThemes()}
             disabled={isRunning}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -194,97 +369,125 @@ export default function ClusteringPage() {
         </Card>
       )}
 
-      {/* Summary Stats */}
-      {heatmapData && heatmapData.total_themes > 0 && (
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <span>{heatmapData.total_themes} themes</span>
-          <span>{heatmapData.total_posts} posts categorized</span>
-          <span>{heatmapData.unclustered_count} unclustered</span>
-          {heatmapData.last_clustering_run && (
+      {/* Filter and Stats Row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <MultiSelectFilter
+            options={productAreas}
+            selected={selectedProductAreaIds}
+            onChange={setSelectedProductAreaIds}
+            themeCounts={themeCounts}
+            placeholder="Filter by product area"
+          />
+          {selectedProductAreaIds.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedProductAreaIds([])}
+              className="text-muted-foreground"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>{themes.length} themes</span>
+          <span>{totalPosts} posts</span>
+          {clusteringStatus?.completed_at && (
             <span>
-              Last analyzed: {new Date(heatmapData.last_clustering_run.completed_at!).toLocaleString()}
+              Last analyzed: {new Date(clusteringStatus.completed_at).toLocaleString()}
             </span>
           )}
         </div>
+      </div>
+
+      {/* Selected Filters Display */}
+      {selectedProductAreaIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Showing themes with posts in:</span>
+          {selectedProductAreaIds.map((paId) => {
+            const pa = productAreas.find((p) => p.id === paId)
+            return pa ? (
+              <Badge key={paId} variant="secondary" className="flex items-center gap-1">
+                {pa.name}
+                <button
+                  onClick={() => setSelectedProductAreaIds(prev => prev.filter(id => id !== paId))}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ) : null
+          })}
+        </div>
       )}
 
-      {/* Themes by Product Area */}
-      {heatmapData && heatmapData.rows.length > 0 ? (
-        <div className="space-y-4">
-          {heatmapData.rows.map((row) => (
-            <Card key={row.product_area_id ?? "uncategorized"}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
-                    {row.product_area_name}
-                  </CardTitle>
-                  <span className="text-sm text-muted-foreground">
-                    {row.total_posts} posts
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="divide-y">
-                  {row.themes.map((theme) => (
-                    <ThemeRow
-                      key={theme.theme_id}
-                      theme={theme}
-                      onClick={() => handleThemeClick(theme.theme_id)}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+      {/* Theme Cards */}
+      {themes.length > 0 ? (
+        <div className="space-y-3">
+          {themes.map((theme) => (
+            <ThemeCard
+              key={theme.id}
+              theme={theme}
+              onClick={() => handleThemeClick(theme.id)}
+            />
           ))}
-
-          {/* Unclustered Posts */}
-          {heatmapData.unclustered_count > 0 && (
-            <Card className="border-dashed">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium text-muted-foreground">
-                    Unclustered
-                  </CardTitle>
-                  <span className="text-sm text-muted-foreground">
-                    {heatmapData.unclustered_count} posts
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <Link
-                  href="/posts?clustered=false"
-                  className="flex items-center justify-between p-3 hover:bg-accent rounded-lg transition-colors"
-                >
-                  <span className="text-muted-foreground">
-                    Posts not yet assigned to a theme
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </Link>
-              </CardContent>
-            </Card>
-          )}
         </div>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              No themes discovered yet. Run analysis to identify recurring issues from posts.
-            </p>
-            <Button
-              onClick={() => handleRunClustering("full")}
-              disabled={isRunning || triggering || !canPerformActions}
-              title={!canPerformActions ? permissionReason ?? undefined : undefined}
+            {selectedProductAreaIds.length > 0 ? (
+              <p className="text-muted-foreground">
+                No themes found for selected product areas.
+              </p>
+            ) : (
+              <>
+                <p className="text-muted-foreground mb-4">
+                  No themes discovered yet. Run analysis to identify recurring issues from posts.
+                </p>
+                <Button
+                  onClick={() => handleRunClustering("full")}
+                  disabled={isRunning || triggering || !canPerformActions}
+                  title={!canPerformActions ? permissionReason ?? undefined : undefined}
+                >
+                  {triggering ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Analyze Posts
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Unclustered Posts Link */}
+      {themes.length > 0 && (
+        <Card className="border-dashed">
+          <CardContent className="p-0">
+            <Link
+              href="/posts?clustered=false"
+              className="flex items-center justify-between p-4 hover:bg-accent rounded-lg transition-colors"
             >
-              {triggering ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4 mr-2" />
-              )}
-              Analyze Posts
-            </Button>
+              <span className="text-muted-foreground">
+                View unclustered posts ({unclusteredCount})
+              </span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
           </CardContent>
         </Card>
       )}
     </div>
+  )
+}
+
+export default function ClusteringPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading themes...</div>}>
+      <ClusteringPageContent />
+    </Suspense>
   )
 }

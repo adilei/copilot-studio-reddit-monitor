@@ -321,39 +321,25 @@ To configure:
 **Manual trigger:**
 - Go to Actions tab → "Scrape Reddit" or "Test Reddit Access" → Run workflow
 
-### Clustering Post ID Mismatch Bug (February 2026)
+### Clustering Post ID Mismatch Bug (February 2026) - FIXED
 
-**Status:** Investigation complete, fix pending
+**Status:** Fixed
 
-**Problem:** 90% of posts remain unclustered after full clustering runs.
-- EMEA stats: 252 total posts, only 24 clustered (9.6%), 228 unclustered
-- Last full clustering processed 251 posts but only created 24 mappings
+**Problem:** 90% of posts remained unclustered after full clustering runs.
+- Root cause: Consolidation phase asked LLM to merge themes AND preserve 250+ post IDs
+- LLM overwhelmed by volume, dropped most IDs during consolidation
 
-**Root Cause:** The LLM returns incorrect post IDs that don't match the database.
+**Solution:** Code-level post ID preservation
+1. LLM consolidation now only handles theme metadata (name, description, product_area)
+2. LLM returns `merged_from: [indices]` to indicate which batch themes merge together
+3. Code programmatically combines post_ids based on the merge mapping
+4. Fallback "Uncategorized posts" theme created for any posts not assigned
 
-In `clustering_service.py` line 314-322, mappings are only created if the post ID exists:
-```python
-for post_id in theme_data.get("post_ids", []):
-    if db.query(Post).filter(Post.id == post_id).first():  # Silent failure if no match
-        mapping = PostThemeMapping(...)
-```
+**Key changes in `clustering_service.py`:**
+- `CONSOLIDATION_PROMPT`: No longer asks for post_ids, uses `merged_from` indices instead
+- `_consolidate_themes()`: Tracks post_ids at code level, combines them based on LLM's merge mapping
+- `_run_full_clustering()`: Creates "Uncategorized posts" theme for any unmapped posts
 
-The prompt sends posts as `[Post 1abc123]` and expects exact IDs back, but the LLM likely:
-1. Hallucinated IDs entirely
-2. Modified IDs (case changes, truncation, typos)
-3. Combined or split IDs incorrectly
-
-**Next Steps:**
-1. Add logging to `_discover_themes_in_batch()` and `_run_full_clustering()` to capture:
-   - Post IDs sent to LLM vs post IDs returned
-   - Which IDs failed the database lookup
-2. Analyze the mismatch pattern
-3. Fix the prompt or add fuzzy matching for post IDs
-
-**Investigation can be done locally** - local backend is configured against Azure OpenAI, so we can:
-- Run clustering locally: `POST http://localhost:8000/api/clustering/run` with `{"run_type": "full"}`
-- Check local DB for results
-- Add logging and iterate quickly without deploying to EMEA
-
-**Files to modify:**
-- `backend/app/services/clustering_service.py` - Add logging around lines 314-322 and 452-465
+**Verification:** Run full clustering with `CLUSTERING_DEBUG=true` and check logs for:
+- "All X post IDs preserved through consolidation"
+- Post coverage percentage should be 100%

@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import json
 import logging
@@ -16,11 +17,15 @@ logger = logging.getLogger(__name__)
 # Enable debug logging via env var: CLUSTERING_DEBUG=true
 CLUSTERING_DEBUG = os.getenv("CLUSTERING_DEBUG", "").lower() in ("true", "1", "yes")
 
+# Delay between LLM requests to avoid rate limiting (default: 10 seconds)
+# Set via env var: LLM_REQUEST_DELAY_SECONDS=15
+LLM_REQUEST_DELAY = float(os.getenv("LLM_REQUEST_DELAY_SECONDS", "10"))
+
 BATCH_SIZE = 20  # Posts per batch for LLM analysis
 
 BATCH_CLUSTERING_PROMPT = """Analyze these Reddit posts about Microsoft Copilot Studio. Identify recurring themes based on what users are TRYING TO DO but struggling with or asking about.
 
-Posts:
+Posts (each has a unique index number):
 {posts_text}
 
 Product Areas (use the ID number for classification - choose the area that is the SOURCE of the frustration):
@@ -58,7 +63,7 @@ For each theme you discover:
 - Name it based on what users WANT TO DO (their goal, not the technical problem)
 - Describe what users are trying to accomplish and why they're struggling
 - Identify which product area is the SOURCE of their frustration
-- List which post IDs exhibit this theme
+- List which post INDICES (the numbers 0-{max_index}) exhibit this theme
 
 Return a JSON object with this structure:
 {{
@@ -67,16 +72,15 @@ Return a JSON object with this structure:
             "theme_name": "What users are trying to do",
             "description": "Users want to X but are struggling because Y",
             "product_area_id": <ID of area causing frustration, or null if unclear>,
-            "post_ids": ["1abc123", "2def456"]
+            "post_indices": [0, 3, 7]
         }}
     ]
 }}
 
-CRITICAL: The post_ids array MUST contain the exact IDs from the [Post XXX] markers in the input above.
-For example, if the input contains "[Post 1qpia0c]", then use "1qpia0c" in post_ids.
+IMPORTANT: Use "post_indices" with the INDEX NUMBERS (0 to {max_index}), NOT post IDs.
 
 CRITICAL REQUIREMENTS:
-- EVERY post MUST appear in exactly ONE theme's post_ids array - NO EXCEPTIONS
+- EVERY post index (0 to {max_index}) MUST appear in exactly ONE theme's post_indices array - NO EXCEPTIONS
 - If you're unsure which theme a post belongs to, assign it to the theme with the closest match
 - Even low-confidence matches MUST be included - do not drop any posts
 - If a post truly doesn't fit any theme, create a "General questions and discussions" theme and assign it there
@@ -84,13 +88,13 @@ CRITICAL REQUIREMENTS:
 - If a post mentions multiple issues, identify the MAIN frustration and assign to that theme only
 - Include general questions, feature requests, and success stories as valid themes
 
-VERIFICATION: Before responding, count the post IDs in your response. It MUST equal {post_count} (the number of posts in the input).
+VERIFICATION: Before responding, count the indices in your response. It MUST equal {post_count}.
 
 Respond ONLY with the JSON object."""
 
 CONSOLIDATION_PROMPT = """These themes were discovered from analyzing multiple batches of Reddit posts about Microsoft Copilot Studio.
 
-Themes from all batches:
+Themes from all batches (each has a unique index):
 {themes_text}
 
 Your task: Merge semantically similar themes into 10-15 final consolidated themes.
@@ -98,8 +102,9 @@ Your task: Merge semantically similar themes into 10-15 final consolidated theme
 Rules:
 1. Combine themes where users have the SAME GOAL (e.g., "Connecting SharePoint as knowledge source" and "Setting up SharePoint knowledge base" = same user goal)
 2. Keep theme names focused on what users WANT TO DO, not technical symptoms
-3. Combine post_ids from all merged themes into one array
-4. If themes span multiple product areas, choose the one that is the primary SOURCE of frustration
+3. If themes span multiple product areas, choose the one that is the primary SOURCE of frustration
+
+IMPORTANT: You do NOT need to handle post_ids - just tell me which theme indices to merge together.
 
 Return a JSON object with this structure:
 {{
@@ -108,14 +113,15 @@ Return a JSON object with this structure:
             "theme_name": "What users are trying to do",
             "description": "Users want to X but are struggling because Y",
             "product_area_id": <ID number or null>,
-            "post_ids": ["1abc123", "2def456", "3ghi789"]
+            "merged_from": [0, 3, 7]
         }}
     ]
 }}
 
-CRITICAL:
-- The post_ids array must contain the ACTUAL post IDs from the input themes (like "1qpia0c"). Merge the post_ids arrays from themes you combine.
-- product_area_id should be a number from the input themes, or null.
+The "merged_from" array should contain the INDICES of the original themes that were merged into this consolidated theme.
+For example, if themes at index 0, 3, and 7 are all about the same user goal, merge them into one theme with merged_from: [0, 3, 7].
+
+Every original theme index (0 to {theme_count_minus_one}) MUST appear in exactly ONE consolidated theme's merged_from array.
 
 Respond ONLY with the JSON object."""
 
@@ -124,7 +130,7 @@ INCREMENTAL_ASSIGNMENT_PROMPT = """Given these existing themes and a batch of ne
 Existing Themes:
 {themes_text}
 
-New Posts:
+New Posts (each has a unique index number):
 {posts_text}
 
 For each post, identify the ONE existing theme that best matches the user's PRIMARY pain point. If a post mentions multiple issues, focus on the MAIN frustration. If a post describes a goal not covered by existing themes, suggest a new theme.
@@ -133,7 +139,7 @@ Return a JSON object with this structure:
 {{
     "assignments": [
         {{
-            "post_id": "the_post_id",
+            "post_index": 0,
             "theme_id": 1,
             "confidence": 0.8
         }}
@@ -143,20 +149,22 @@ Return a JSON object with this structure:
             "theme_name": "What users are trying to do",
             "description": "Users want to X but are struggling because Y",
             "product_area_id": <ID number or null>,
-            "post_ids": ["actual_post_id_1", "actual_post_id_2"]
+            "post_indices": [3, 7]
         }}
     ]
 }}
 
+IMPORTANT: Use "post_index" and "post_indices" with INDEX NUMBERS (0 to {max_index}), NOT post IDs.
+
 CRITICAL REQUIREMENTS:
-- EVERY post MUST appear either in an assignment OR in a new_theme's post_ids - NO EXCEPTIONS
+- EVERY post index (0 to {max_index}) MUST appear either in an assignment OR in a new_theme's post_indices - NO EXCEPTIONS
 - Even low-confidence matches (0.3+) MUST be included in assignments - do not drop any posts
 - If a post truly doesn't fit any existing theme, create a new theme for it
 - Each post should be assigned to exactly ONE theme (its PRIMARY pain point)
 - confidence should be 0.0-1.0 (use lower confidence for uncertain matches, but still include them)
 - General questions and feature requests are valid themes
 
-VERIFICATION: Before responding, count the post IDs in your response. It MUST equal {post_count} (the number of posts in the input).
+VERIFICATION: Before responding, count the indices in your response. It MUST equal {post_count}.
 
 Respond ONLY with the JSON object."""
 
@@ -271,6 +279,9 @@ class ClusteringService:
             db.commit()
             return
 
+        # Track all post IDs for later verification
+        all_post_ids = {post.id for post in posts}
+
         # Deactivate existing themes (soft delete)
         db.query(PainTheme).update({PainTheme.is_active: False})
 
@@ -288,14 +299,50 @@ class ClusteringService:
             clustering_run.posts_processed = min(i + BATCH_SIZE, len(posts))
             db.commit()
 
-        # Consolidate themes if we have multiple batches
-        if len(all_discovered_themes) > 15:
-            final_themes = await self._consolidate_themes(all_discovered_themes)
-        else:
-            final_themes = all_discovered_themes
+        # Consolidate themes PER PRODUCT AREA (not globally)
+        # Themes with null product_area_id will have their posts go to Uncategorized
+        MAX_PER_AREA = 5
+        MAX_CONSOLIDATION_ROUNDS = 3
+
+        # Group themes by product_area_id
+        from collections import defaultdict
+        themes_by_area = defaultdict(list)
+        uncategorized_post_ids = set()  # Posts from themes with no product area
+
+        for theme in all_discovered_themes:
+            pa_id = theme.get("product_area_id")
+            if pa_id is None:
+                # Themes without product area -> posts go to uncategorized
+                uncategorized_post_ids.update(theme.get("post_ids", []))
+            else:
+                themes_by_area[pa_id].append(theme)
+
+        if CLUSTERING_DEBUG:
+            logger.info(f"[CLUSTERING DEBUG] Themes by product area: {[(pa, len(themes)) for pa, themes in themes_by_area.items()]}")
+            logger.info(f"[CLUSTERING DEBUG] Posts from null product_area themes: {len(uncategorized_post_ids)}")
+
+        # Consolidate each product area separately
+        final_themes = []
+        for pa_id, area_themes in themes_by_area.items():
+            if len(area_themes) <= MAX_PER_AREA:
+                final_themes.extend(area_themes)
+            else:
+                # Consolidate this product area's themes
+                consolidated = area_themes
+                rounds = 0
+                while len(consolidated) > MAX_PER_AREA and rounds < MAX_CONSOLIDATION_ROUNDS:
+                    rounds += 1
+                    logger.info(f"[CLUSTERING] Product area {pa_id}: consolidation round {rounds}, {len(consolidated)} -> {MAX_PER_AREA} themes")
+                    consolidated = await self._consolidate_themes(consolidated)
+                final_themes.extend(consolidated)
+
+        logger.info(f"[CLUSTERING] After per-area consolidation: {len(final_themes)} themes")
 
         # Get valid product area IDs
         valid_pa_ids = {pa.id for pa in db.query(ProductArea).filter(ProductArea.is_active == True).all()}
+
+        # Track which posts get mapped
+        mapped_post_ids = set()
 
         # Create theme records and mappings
         themes_created = 0
@@ -326,13 +373,14 @@ class ClusteringService:
             failed_ids = []
             for post_id in theme_data.get("post_ids", []):
                 # Verify post exists
-                if db.query(Post).filter(Post.id == post_id).first():
+                if post_id in all_post_ids:
                     mapping = PostThemeMapping(
                         post_id=post_id,
                         theme_id=theme.id,
                         confidence=1.0,
                     )
                     db.add(mapping)
+                    mapped_post_ids.add(post_id)
                     mapped_count += 1
                 else:
                     failed_ids.append(post_id)
@@ -345,6 +393,36 @@ class ClusteringService:
             themes_created += 1
 
         db.commit()
+
+        # Create "Uncategorized" theme for:
+        # 1. Posts not assigned to any theme
+        # 2. Posts from themes with null product_area_id
+        unmapped_post_ids = (all_post_ids - mapped_post_ids) | (uncategorized_post_ids & all_post_ids)
+        if unmapped_post_ids:
+            logger.info(f"[CLUSTERING] Creating 'Uncategorized' theme for {len(unmapped_post_ids)} unmapped posts")
+
+            uncategorized_theme = PainTheme(
+                name="Uncategorized posts",
+                description="Posts that couldn't be confidently assigned to a specific theme",
+                severity=3,
+                product_area_id=None,
+                is_active=True,
+                clustering_run_id=clustering_run.id,
+            )
+            db.add(uncategorized_theme)
+            db.flush()
+            created_theme_ids.append(uncategorized_theme.id)
+
+            for post_id in unmapped_post_ids:
+                mapping = PostThemeMapping(
+                    post_id=post_id,
+                    theme_id=uncategorized_theme.id,
+                    confidence=0.5,  # Low confidence since not LLM-assigned
+                )
+                db.add(mapping)
+
+            themes_created += 1
+            db.commit()
 
         # Calculate severity for each theme based on post sentiments
         for theme_id in created_theme_ids:
@@ -363,6 +441,8 @@ class ClusteringService:
         ).count()
 
         logger.info(f"Full clustering completed: {len(posts)} posts, {themes_created} themes, {total_mappings} mappings created")
+        if CLUSTERING_DEBUG:
+            logger.info(f"[CLUSTERING DEBUG] Post coverage: {total_mappings}/{len(all_post_ids)} posts mapped ({100*total_mappings/len(all_post_ids):.1f}%)")
 
     async def _run_incremental_clustering(self, db, clustering_run: ClusteringRun):
         """Incremental clustering: assign new posts to existing themes."""
@@ -475,76 +555,332 @@ class ClusteringService:
             f"{themes_created} new themes, {themes_updated} assignments"
         )
 
-    async def _discover_themes_in_batch(self, posts: list[Post]) -> list[dict] | None:
-        """Discover themes in a batch of posts."""
-        # Track post IDs sent to LLM
-        sent_post_ids = {post.id for post in posts}
-        if CLUSTERING_DEBUG:
-            logger.info(f"[CLUSTERING DEBUG] Sending {len(sent_post_ids)} posts to LLM: {sorted(sent_post_ids)}")
+    def _parse_post_reference(self, value, index_to_post_id: dict, post_id_to_index: dict) -> int | None:
+        """Parse a post reference from LLM output into a valid index.
 
+        Handles many formats the LLM might return:
+        - Integer: 0, 1, 2
+        - String integer: "0", "1", "2"
+        - With prefix: "Post 0", "[Post 0]", "post 0"
+        - Actual post ID: "1abc123" (reverse lookup)
+        """
+        import re
+
+        # Already an integer
+        if isinstance(value, int):
+            return value if value in index_to_post_id else None
+
+        if not isinstance(value, str):
+            return None
+
+        value = value.strip()
+
+        # Pure digit string: "0", "1"
+        if value.isdigit():
+            idx = int(value)
+            return idx if idx in index_to_post_id else None
+
+        # Extract number from strings like "Post 0", "[Post 0]", "post 1", etc.
+        match = re.search(r'\b(\d+)\b', value)
+        if match:
+            idx = int(match.group(1))
+            if idx in index_to_post_id:
+                return idx
+
+        # Final fallback: maybe it's an actual post ID
+        if value in post_id_to_index:
+            return post_id_to_index[value]
+
+        # Try lowercase
+        value_lower = value.lower()
+        for post_id, idx in post_id_to_index.items():
+            if post_id.lower() == value_lower:
+                return idx
+
+        return None
+
+    async def _discover_themes_in_batch(self, posts: list[Post]) -> list[dict] | None:
+        """Discover themes in a batch of posts.
+
+        Uses indices instead of post IDs to avoid LLM corrupting/hallucinating IDs.
+        Maps indices back to real post IDs after LLM response.
+        """
+        # Build bidirectional mappings
+        index_to_post_id = {i: post.id for i, post in enumerate(posts)}
+        post_id_to_index = {post.id: i for i, post in enumerate(posts)}
+
+        if CLUSTERING_DEBUG:
+            logger.info(f"[CLUSTERING DEBUG] Sending {len(posts)} posts to LLM (indices 0-{len(posts)-1})")
+
+        # Format posts with indices instead of IDs
         posts_text = "\n\n".join([
-            f"[Post {post.id}]\nTitle: {post.title}\nBody: {post.body or '(no body)'}"
-            for post in posts
+            f"[Post {i}]\nTitle: {post.title}\nBody: {post.body or '(no body)'}"
+            for i, post in enumerate(posts)
         ])
 
-        prompt = BATCH_CLUSTERING_PROMPT.format(posts_text=posts_text, post_count=len(posts))
+        prompt = BATCH_CLUSTERING_PROMPT.format(
+            posts_text=posts_text,
+            post_count=len(posts),
+            max_index=len(posts) - 1
+        )
         result = await self._call_llm(prompt)
 
         if result and "themes" in result:
+            # Map indices back to post IDs
+            # Handle both "post_indices" (preferred) and "post_ids" (fallback if LLM ignores prompt)
+            themes_with_ids = []
+            indices_used = set()
+
+            for theme in result["themes"]:
+                post_ids = []
+                # Try post_indices first (the field we asked for)
+                raw_values = theme.get("post_indices", [])
+                # Fallback to post_ids if LLM ignored our field name
+                if not raw_values:
+                    raw_values = theme.get("post_ids", [])
+
+                for val in raw_values:
+                    idx = self._parse_post_reference(val, index_to_post_id, post_id_to_index)
+                    if idx is not None:
+                        post_ids.append(index_to_post_id[idx])
+                        indices_used.add(idx)
+                    elif CLUSTERING_DEBUG:
+                        logger.warning(f"[CLUSTERING DEBUG] Could not parse '{val}' in theme '{theme.get('theme_name', 'unknown')}'")
+
+                themes_with_ids.append({
+                    "theme_name": theme.get("theme_name", ""),
+                    "description": theme.get("description", ""),
+                    "product_area_id": theme.get("product_area_id"),
+                    "post_ids": post_ids,
+                })
+
+            # Check for missing indices
+            all_indices = set(range(len(posts)))
+            missing_indices = all_indices - indices_used
+
             if CLUSTERING_DEBUG:
-                # Log post IDs returned by LLM
-                returned_post_ids = set()
-                for theme in result["themes"]:
-                    for pid in theme.get("post_ids", []):
-                        returned_post_ids.add(pid)
+                logger.info(f"[CLUSTERING DEBUG] Batch: {len(indices_used)}/{len(posts)} posts assigned to themes")
+                if missing_indices:
+                    logger.warning(f"[CLUSTERING DEBUG] Missing indices: {sorted(missing_indices)}")
+                else:
+                    logger.info(f"[CLUSTERING DEBUG] All {len(posts)} posts assigned successfully")
 
-                logger.info(f"[CLUSTERING DEBUG] LLM returned {len(returned_post_ids)} post IDs: {sorted(returned_post_ids)}")
+            return themes_with_ids
 
-                # Check for mismatches
-                missing_from_response = sent_post_ids - returned_post_ids
-                extra_in_response = returned_post_ids - sent_post_ids
-
-                if missing_from_response:
-                    logger.warning(f"[CLUSTERING DEBUG] Post IDs sent but NOT returned by LLM: {sorted(missing_from_response)}")
-                if extra_in_response:
-                    logger.warning(f"[CLUSTERING DEBUG] Post IDs returned by LLM but NOT sent: {sorted(extra_in_response)}")
-
-            return result["themes"]
         logger.warning(f"LLM returned unexpected result: {result}")
         return None
 
     async def _consolidate_themes(self, themes: list[dict]) -> list[dict]:
-        """Consolidate discovered themes from multiple batches."""
-        themes_text = json.dumps(themes, indent=2)
-        prompt = CONSOLIDATION_PROMPT.format(themes_text=themes_text)
+        """Consolidate discovered themes from multiple batches.
+
+        Key insight: The LLM handles theme metadata merging only.
+        Post IDs are combined programmatically based on the merge mapping.
+        """
+        # Build index -> post_ids map before sending to LLM
+        theme_post_ids = {}
+        for i, theme in enumerate(themes):
+            theme_post_ids[i] = set(theme.get("post_ids", []))
+
+        total_post_count = len(set().union(*theme_post_ids.values())) if theme_post_ids else 0
+
+        if CLUSTERING_DEBUG:
+            logger.info(f"[CLUSTERING DEBUG] Consolidation input: {len(themes)} themes, {total_post_count} unique post IDs")
+
+        # Prepare themes for LLM (with indices, without post_ids to reduce complexity)
+        themes_for_llm = []
+        for i, theme in enumerate(themes):
+            themes_for_llm.append({
+                "index": i,
+                "theme_name": theme.get("theme_name", ""),
+                "description": theme.get("description", ""),
+                "product_area_id": theme.get("product_area_id"),
+                "post_count": len(theme.get("post_ids", [])),
+            })
+
+        themes_text = json.dumps(themes_for_llm, indent=2)
+        prompt = CONSOLIDATION_PROMPT.format(
+            themes_text=themes_text,
+            theme_count_minus_one=len(themes) - 1
+        )
         result = await self._call_llm(prompt)
 
         if result and "themes" in result:
-            return result["themes"]
-        return themes[:15]  # Fallback: just take first 15
+            # Log raw LLM response for debugging
+            if CLUSTERING_DEBUG:
+                logger.info(f"[CLUSTERING DEBUG] Consolidation LLM returned {len(result['themes'])} themes")
+                # Log first theme to see structure
+                if result['themes']:
+                    first_theme = result['themes'][0]
+                    logger.info(f"[CLUSTERING DEBUG] First theme keys: {list(first_theme.keys())}")
+                    logger.info(f"[CLUSTERING DEBUG] First theme merged_from: {first_theme.get('merged_from', 'NOT FOUND')}")
+
+            # Programmatically combine post_ids based on merged_from mapping
+            # Handle variations in field names the LLM might use
+            final_themes = []
+            indices_used = set()
+
+            for consolidated in result["themes"]:
+                # Try different field names the LLM might use
+                merged_from = consolidated.get("merged_from", [])
+                if not merged_from:
+                    merged_from = consolidated.get("source_indices", [])
+                if not merged_from:
+                    merged_from = consolidated.get("original_indices", [])
+                if not merged_from:
+                    merged_from = consolidated.get("theme_indices", [])
+                if not merged_from:
+                    merged_from = consolidated.get("indices", [])
+
+                # Collect all post_ids from merged themes
+                combined_post_ids = set()
+                for val in merged_from:
+                    # Parse the index value robustly
+                    idx = None
+                    if isinstance(val, int):
+                        idx = val
+                    elif isinstance(val, str):
+                        val = val.strip()
+                        if val.isdigit():
+                            idx = int(val)
+                        else:
+                            # Try to extract number from "Theme 0", "[0]", etc.
+                            import re
+                            match = re.search(r'\b(\d+)\b', val)
+                            if match:
+                                idx = int(match.group(1))
+
+                    if idx is not None and idx in theme_post_ids:
+                        combined_post_ids.update(theme_post_ids[idx])
+                        indices_used.add(idx)
+
+                if CLUSTERING_DEBUG and not merged_from:
+                    logger.warning(f"[CLUSTERING DEBUG] Theme '{consolidated.get('theme_name', 'unknown')}' has NO merged_from. Keys: {list(consolidated.keys())}")
+
+                final_themes.append({
+                    "theme_name": consolidated.get("theme_name", ""),
+                    "description": consolidated.get("description", ""),
+                    "product_area_id": consolidated.get("product_area_id"),
+                    "post_ids": list(combined_post_ids),
+                })
+
+                if CLUSTERING_DEBUG:
+                    logger.info(f"[CLUSTERING DEBUG] Theme '{consolidated.get('theme_name', '')[:30]}': merged_from={merged_from}, post_count={len(combined_post_ids)}")
+
+            # Handle any themes not included in consolidation (LLM missed them)
+            missing_indices = set(range(len(themes))) - indices_used
+            if missing_indices:
+                logger.warning(f"[CLUSTERING] LLM consolidation missed {len(missing_indices)} theme indices: {sorted(missing_indices)}")
+                # Add missing themes as-is
+                for idx in missing_indices:
+                    final_themes.append(themes[idx])
+
+            if CLUSTERING_DEBUG:
+                output_post_ids = set()
+                for theme in final_themes:
+                    output_post_ids.update(theme.get("post_ids", []))
+                logger.info(f"[CLUSTERING DEBUG] Consolidation output: {len(final_themes)} themes, {len(output_post_ids)} unique post IDs")
+
+                # Verify no posts were lost
+                input_all = set().union(*theme_post_ids.values()) if theme_post_ids else set()
+                if input_all != output_post_ids:
+                    missing = input_all - output_post_ids
+                    extra = output_post_ids - input_all
+                    if missing:
+                        logger.warning(f"[CLUSTERING DEBUG] Consolidation LOST {len(missing)} post IDs")
+                    if extra:
+                        logger.warning(f"[CLUSTERING DEBUG] Consolidation has {len(extra)} extra post IDs (shouldn't happen)")
+                else:
+                    logger.info(f"[CLUSTERING DEBUG] All {len(output_post_ids)} post IDs preserved through consolidation")
+
+            return final_themes
+
+        # Fallback: just take first 15 themes as-is
+        logger.warning("[CLUSTERING] Consolidation failed, using first 15 themes")
+        return themes[:15]
 
     async def _assign_posts_to_themes(self, themes: list[PainTheme], posts: list[Post]) -> dict | None:
-        """Assign posts to existing themes (incremental mode)."""
+        """Assign posts to existing themes (incremental mode).
+
+        Uses indices instead of post IDs to avoid LLM corrupting/hallucinating IDs.
+        Maps indices back to real post IDs after LLM response.
+        """
+        # Build bidirectional mappings
+        index_to_post_id = {i: post.id for i, post in enumerate(posts)}
+        post_id_to_index = {post.id: i for i, post in enumerate(posts)}
+
         themes_text = "\n".join([
             f"[Theme ID: {t.id}] {t.name}: {t.description or 'No description'}"
             for t in themes
         ])
 
+        # Format posts with indices instead of IDs
         posts_text = "\n\n".join([
-            f"[Post {post.id}]\nTitle: {post.title}\nBody: {post.body or '(no body)'}"
-            for post in posts
+            f"[Post {i}]\nTitle: {post.title}\nBody: {post.body or '(no body)'}"
+            for i, post in enumerate(posts)
         ])
 
         prompt = INCREMENTAL_ASSIGNMENT_PROMPT.format(
             themes_text=themes_text,
             posts_text=posts_text,
             post_count=len(posts),
+            max_index=len(posts) - 1,
         )
 
-        return await self._call_llm(prompt)
+        result = await self._call_llm(prompt)
+
+        if result:
+            # Map indices back to post IDs in assignments
+            # Use robust parsing to handle various LLM output formats
+            mapped_assignments = []
+            for assignment in result.get("assignments", []):
+                # Try post_index first, fallback to post_id
+                val = assignment.get("post_index")
+                if val is None:
+                    val = assignment.get("post_id")
+
+                idx = self._parse_post_reference(val, index_to_post_id, post_id_to_index)
+                if idx is not None:
+                    mapped_assignments.append({
+                        "post_id": index_to_post_id[idx],
+                        "theme_id": assignment.get("theme_id"),
+                        "confidence": assignment.get("confidence", 1.0),
+                    })
+
+            # Map indices back to post IDs in new_themes
+            mapped_new_themes = []
+            for new_theme in result.get("new_themes", []):
+                post_ids = []
+                raw_values = new_theme.get("post_indices", [])
+                if not raw_values:
+                    raw_values = new_theme.get("post_ids", [])
+
+                for val in raw_values:
+                    idx = self._parse_post_reference(val, index_to_post_id, post_id_to_index)
+                    if idx is not None:
+                        post_ids.append(index_to_post_id[idx])
+
+                mapped_new_themes.append({
+                    "theme_name": new_theme.get("theme_name", ""),
+                    "description": new_theme.get("description", ""),
+                    "product_area_id": new_theme.get("product_area_id"),
+                    "post_ids": post_ids,
+                })
+
+            return {
+                "assignments": mapped_assignments,
+                "new_themes": mapped_new_themes,
+            }
+
+        return None
 
     async def _call_llm(self, prompt: str) -> dict | None:
-        """Call the configured LLM provider."""
+        """Call the configured LLM provider with rate limiting."""
+        # Apply throttling to avoid rate limits
+        if LLM_REQUEST_DELAY > 0:
+            if CLUSTERING_DEBUG:
+                logger.info(f"[CLUSTERING DEBUG] Waiting {LLM_REQUEST_DELAY}s before LLM request...")
+            await asyncio.sleep(LLM_REQUEST_DELAY)
+
         if self.settings.llm_provider == "ollama":
             return await self._call_ollama(prompt)
         else:

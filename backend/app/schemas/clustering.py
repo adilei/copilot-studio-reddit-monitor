@@ -32,6 +32,14 @@ class ProductAreaResponse(ProductAreaBase):
         from_attributes = True
 
 
+# Product Area Tag (computed from posts in a theme)
+class ProductAreaTag(BaseModel):
+    """Tag showing product area distribution for a theme's posts."""
+    id: int
+    name: str
+    post_count: int  # How many posts in this theme have this product area
+
+
 # Pain Theme schemas
 class PainThemeBase(BaseModel):
     name: str
@@ -59,6 +67,8 @@ class PainThemeResponse(PainThemeBase):
     updated_at: datetime
     post_count: int = 0
     product_area_name: str | None = None
+    # Computed from posts in this theme - shows product area distribution
+    product_area_tags: list[ProductAreaTag] = []
 
     class Config:
         from_attributes = True
@@ -144,6 +154,8 @@ class ThemePostSummary(BaseModel):
     created_utc: datetime
     sentiment: str | None = None
     confidence: float = 1.0
+    product_area_id: int | None = None
+    product_area_name: str | None = None
 
 
 class ThemeDetailResponse(PainThemeResponse):

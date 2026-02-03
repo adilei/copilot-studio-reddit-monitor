@@ -9,10 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { SentimentBadge } from "@/components/SentimentBadge"
 import {
   getThemeDetail,
-  getProductAreas,
   updateTheme,
   type ThemeDetail,
-  type ProductArea,
 } from "@/lib/api"
 import { formatDate, formatRelativeTime } from "@/lib/utils"
 import { ArrowLeft, Edit, Save, X } from "lucide-react"
@@ -75,7 +73,6 @@ function ThemeDetailContent() {
   const { canPerformActions, reason: permissionReason } = useCanPerformActions()
 
   const [theme, setTheme] = useState<ThemeDetail | null>(null)
-  const [productAreas, setProductAreas] = useState<ProductArea[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -83,7 +80,6 @@ function ThemeDetailContent() {
     name: "",
     description: "",
     severity: 3,
-    product_area_id: 0,
   })
 
   useEffect(() => {
@@ -97,17 +93,12 @@ function ThemeDetailContent() {
   async function loadData() {
     if (!id) return
     try {
-      const [themeData, areasData] = await Promise.all([
-        getThemeDetail(parseInt(id)),
-        getProductAreas(),
-      ])
+      const themeData = await getThemeDetail(parseInt(id))
       setTheme(themeData)
-      setProductAreas(areasData)
       setEditForm({
         name: themeData.name,
         description: themeData.description || "",
         severity: themeData.severity,
-        product_area_id: themeData.product_area_id || 0,
       })
     } catch (error) {
       console.error("Failed to load theme:", error)
@@ -124,15 +115,12 @@ function ThemeDetailContent() {
         name: editForm.name,
         description: editForm.description || undefined,
         severity: editForm.severity,
-        product_area_id: editForm.product_area_id || undefined,
       })
       setTheme({
         ...theme,
         name: updated.name,
         description: updated.description,
         severity: updated.severity,
-        product_area_id: updated.product_area_id,
-        product_area_name: updated.product_area_name,
       })
       setEditing(false)
     } catch (error) {
@@ -178,31 +166,6 @@ function ThemeDetailContent() {
               )}
 
               <div className="flex items-center gap-2">
-                {editing ? (
-                  <Select
-                    value={editForm.product_area_id.toString()}
-                    onValueChange={(val) =>
-                      setEditForm({ ...editForm, product_area_id: parseInt(val) })
-                    }
-                  >
-                    <SelectTrigger className="w-[250px]">
-                      <SelectValue placeholder="Select product area" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">Uncategorized</SelectItem>
-                      {productAreas.map((pa) => (
-                        <SelectItem key={pa.id} value={pa.id.toString()}>
-                          {pa.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Badge variant="outline">
-                    {theme.product_area_name || "Uncategorized"}
-                  </Badge>
-                )}
-
                 {editing ? (
                   <Select
                     value={editForm.severity.toString()}
@@ -282,6 +245,21 @@ function ThemeDetailContent() {
             <span>{theme.post_count} posts</span>
             <span>Created: {formatDate(theme.created_at)}</span>
           </div>
+
+          {/* Product Area Tags - derived from posts */}
+          {theme.product_area_tags && theme.product_area_tags.length > 0 && (
+            <div className="space-y-2 pt-2 border-t">
+              <p className="text-sm font-medium text-muted-foreground">Product areas (from posts)</p>
+              <div className="flex flex-wrap gap-2">
+                {theme.product_area_tags.map((tag) => (
+                  <Badge key={tag.id} variant="secondary">
+                    {tag.name}
+                    <span className="ml-1 text-muted-foreground">({tag.post_count})</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -312,6 +290,14 @@ function ThemeDetailContent() {
                         <span>u/{post.author}</span>
                         <span>·</span>
                         <span>{formatRelativeTime(post.created_utc)}</span>
+                        {post.product_area_name && (
+                          <>
+                            <span>·</span>
+                            <span className="text-xs bg-secondary px-1.5 py-0.5 rounded">
+                              {post.product_area_name}
+                            </span>
+                          </>
+                        )}
                         {post.confidence < 1 && (
                           <>
                             <span>·</span>

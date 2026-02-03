@@ -386,6 +386,12 @@ export async function deleteProductArea(id: number): Promise<void> {
 }
 
 // Clustering
+export interface ProductAreaTag {
+  id: number
+  name: string
+  post_count: number
+}
+
 export interface PainTheme {
   id: number
   name: string
@@ -397,6 +403,7 @@ export interface PainTheme {
   updated_at: string
   post_count: number
   product_area_name: string | null
+  product_area_tags: ProductAreaTag[]
 }
 
 export interface ClusteringRun {
@@ -442,6 +449,8 @@ export interface ThemePostSummary {
   created_utc: string
   sentiment: "positive" | "neutral" | "negative" | null
   confidence: number
+  product_area_id: number | null
+  product_area_name: string | null
 }
 
 export interface ThemeDetail extends PainTheme {
@@ -462,14 +471,20 @@ export async function getClusteringStatus(): Promise<ClusteringRun | null> {
 }
 
 export async function getThemes(params?: {
-  product_area_id?: number
+  product_area_ids?: number[]
   include_inactive?: boolean
 }): Promise<PainTheme[]> {
   const searchParams = new URLSearchParams()
   if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) searchParams.append(key, String(value))
-    })
+    if (params.product_area_ids && params.product_area_ids.length > 0) {
+      // FastAPI expects repeated params for list: ?product_area_ids=1&product_area_ids=2
+      params.product_area_ids.forEach((id) => {
+        searchParams.append("product_area_ids", String(id))
+      })
+    }
+    if (params.include_inactive !== undefined) {
+      searchParams.append("include_inactive", String(params.include_inactive))
+    }
   }
   const query = searchParams.toString()
   return fetchApi<PainTheme[]>(`/api/clustering/themes${query ? `?${query}` : ""}`)

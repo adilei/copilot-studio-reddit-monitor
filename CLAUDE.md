@@ -250,7 +250,45 @@ See `docs/SYNC_GUIDE.md` for complete sync documentation including daily workflo
 - Two run types: "full" (re-cluster all posts) and "incremental" (assign new posts to existing themes)
 - Scheduled incremental clustering runs every 6 hours
 - `key_issues` was removed from sentiment analysis (made redundant by clustering)
-- Product areas seeded on first startup with 12 Copilot Studio categories
+- Product areas seeded on first startup with 13 Copilot Studio categories
+
+### Product Areas and Themes Architecture (February 2026)
+
+**Key Design Decision**: Product area classification happens at the **post level**, not theme level.
+
+**Data Model**:
+```
+Post ──1:many──> Analysis (HAS product_area_id)
+     └──many:many──> PostThemeMapping ──> PainTheme (no product_area_id)
+```
+
+**Why post-level classification?**
+- A single theme (e.g., "Understanding why my agent gives wrong answers") can span multiple product areas
+- Post-level gives more accurate metrics: "How many Analytics complaints do we have?"
+- PMs can filter themes by their product area to see relevant issues
+
+**How it works**:
+1. **Sentiment Analysis**: When a post is analyzed, the LLM also classifies which product area is the SOURCE of frustration
+2. **Theme Discovery**: Clustering groups posts by user GOALS, not by product area
+3. **Theme Tags**: Each theme displays "product area tags" computed from its posts (e.g., "Analytics (5)", "Channels (3)")
+4. **Filtering**: PMs can filter the themes page by product area to see only themes with posts in their area
+
+**Product Areas** (loaded dynamically from database):
+- Agent Flows / Power Automate
+- Generative Answers / Knowledge / RAG
+- Autonomous Agents / Triggers
+- Analytics
+- Tools / Connectors
+- MCP (Model Context Protocol)
+- Channels
+- User Experience
+- Governance
+- Lifecycle / Admin
+- Orchestration
+- Pro Dev Experience
+- Agent 365 / Agent Management
+
+**Backfill Script**: `python scripts/backfill_product_areas.py` re-analyzes existing posts to classify product areas.
 
 ### Azure Deployment
 

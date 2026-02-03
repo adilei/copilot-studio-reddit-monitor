@@ -33,6 +33,7 @@ export NEXT_PUBLIC_API_URL="$BACKEND_URL"
 export NEXT_PUBLIC_AUTH_ENABLED="true"
 export NEXT_PUBLIC_AZURE_AD_CLIENT_ID="8451fcdd-4db4-428f-8e09-e26d8fb01367"
 export NEXT_PUBLIC_AZURE_AD_TENANT_ID="72f988bf-86f1-41af-91ab-2d7cd011db47"
+export NEXT_PUBLIC_MIN_RECURRING_POSTS="5"  # Themes with fewer posts shown in "emerging" section
 
 # Get project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

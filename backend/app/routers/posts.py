@@ -17,12 +17,12 @@ from app.schemas import (
     ContributorReplyResponse,
 )
 from app.services.llm_analyzer import analyzer
-from app.auth import get_current_user, require_contributor_write
+from app.auth import require_registered_user, require_contributor_write
 
 router = APIRouter(
     prefix="/api/posts",
     tags=["posts"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_registered_user)],
 )
 
 

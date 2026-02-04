@@ -9,12 +9,12 @@ from app.schemas import (
     ProductAreaUpdate,
     ProductAreaResponse,
 )
-from app.auth import get_current_user
+from app.auth import require_registered_user
 
 router = APIRouter(
     prefix="/api/product-areas",
     tags=["product-areas"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_registered_user)],
 )
 
 

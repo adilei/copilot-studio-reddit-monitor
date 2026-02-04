@@ -158,6 +158,49 @@ async def require_service_principal(
     return claims
 
 
+async def require_registered_user(
+    claims: dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Contributor | None:
+    """
+    Require the authenticated user to be registered (contributor or reader).
+
+    Any user with a matching microsoft_alias is allowed.
+    Raises 403 if user is not registered.
+    """
+    settings = get_settings()
+
+    # If auth is disabled, allow access
+    if not settings.auth_enabled or claims.get("auth_disabled"):
+        return None
+
+    # Get UPN from token
+    upn = claims.get("preferred_username") or claims.get("email")
+    alias = extract_alias_from_upn(upn)
+
+    if not alias:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot determine user identity from token",
+        )
+
+    # Look up user by alias
+    user = (
+        db.query(Contributor)
+        .filter(Contributor.microsoft_alias == alias)
+        .filter(Contributor.active == True)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User '{alias}' is not registered. Contact an admin for access.",
+        )
+
+    return user
+
+
 async def require_contributor_write(
     claims: dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db),

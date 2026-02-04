@@ -17,12 +17,12 @@ from app.schemas import (
     ThemeDetailResponse,
     ProductAreaTag,
 )
-from app.auth import get_current_user, require_contributor_write
+from app.auth import require_registered_user, require_contributor_write
 
 router = APIRouter(
     prefix="/api/clustering",
     tags=["clustering"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_registered_user)],
 )
 
 

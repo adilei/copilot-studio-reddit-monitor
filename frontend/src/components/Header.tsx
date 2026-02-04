@@ -82,8 +82,8 @@ export function Header() {
         </Button>
       ) : null}
 
-      {/* Contributor selector - show if auth disabled OR authenticated but not linked to a contributor */}
-      {(!authEnabled || (isAuthenticated && !user?.contributorId)) && (
+      {/* Contributor selector - only show if auth is disabled (local dev mode) */}
+      {!authEnabled && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2">

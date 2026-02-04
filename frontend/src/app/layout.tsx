@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers"
 import { Sidebar } from "@/components/Sidebar"
 import { Header } from "@/components/Header"
 import { AuthGate } from "@/components/AuthGate"
+import { UnregisteredGate } from "@/components/UnregisteredGate"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,9 +28,11 @@ export default function RootLayout({
               <Sidebar />
               <div className="flex-1 flex flex-col">
                 <Header />
-                <main className="flex-1 overflow-auto">
-                  {children}
-                </main>
+                <UnregisteredGate>
+                  <main className="flex-1 overflow-auto">
+                    {children}
+                  </main>
+                </UnregisteredGate>
               </div>
             </div>
           </AuthGate>

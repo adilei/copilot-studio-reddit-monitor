@@ -11,12 +11,13 @@ import {
   MessageSquare,
   ThumbsUp,
   CheckCircle,
-  UserCheck,
+  CheckCircle2,
+  CircleDashed,
   Lock,
   Unlock,
   Sparkles,
 } from "lucide-react"
-import { checkoutPost, releasePost, type Post } from "@/lib/api"
+import { checkoutPost, releasePost, resolvePost, unresolvePost, type Post } from "@/lib/api"
 import { useContributor } from "@/lib/contributor-context"
 import Link from "next/link"
 
@@ -60,6 +61,32 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
     }
   }
 
+  async function handleResolve() {
+    if (!contributor) return
+    setLoading(true)
+    try {
+      const updated = await resolvePost(post.id, contributor.id)
+      onPostUpdate?.(updated)
+    } catch (error) {
+      console.error("Failed to resolve post:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleUnresolve() {
+    if (!contributor) return
+    setLoading(true)
+    try {
+      const updated = await unresolvePost(post.id, contributor.id)
+      onPostUpdate?.(updated)
+    } catch (error) {
+      console.error("Failed to unresolve post:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
@@ -70,15 +97,23 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
                 {post.title}
               </CardTitle>
             </Link>
-            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground flex-wrap">
               <span>r/{post.subreddit}</span>
               <span>·</span>
               <span>u/{post.author}</span>
               <span>·</span>
               <span>{formatRelativeTime(post.created_utc)}</span>
+              {post.product_area_name && (
+                <>
+                  <span>·</span>
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    {post.product_area_name}
+                  </Badge>
+                </>
+              )}
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             <SentimentBadge
               sentiment={post.latest_sentiment}
               score={post.latest_sentiment_score}
@@ -88,12 +123,6 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
               <Badge variant="outline" className="text-yellow-600 border-yellow-300">
                 <Sparkles className="h-3 w-3 mr-1" />
                 Not Analyzed
-              </Badge>
-            )}
-            {isCheckedOutByMe && (
-              <Badge className="bg-blue-500 text-white">
-                <UserCheck className="h-3 w-3 mr-1" />
-                You're handling
               </Badge>
             )}
             {isCheckedOutByOther && (
@@ -119,9 +148,11 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
       </CardHeader>
       <CardContent>
         {post.body && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-            {post.body}
-          </p>
+          <Link href={`/posts/detail?id=${post.id}`}>
+            <p className="text-sm text-muted-foreground line-clamp-2 mb-3 cursor-pointer hover:text-foreground">
+              {post.body}
+            </p>
+          </Link>
         )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -149,12 +180,34 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
             {isCheckedOutByMe && (
               <Button
                 size="sm"
-                variant="outline"
+                className="bg-blue-500 hover:bg-blue-600 text-white"
                 onClick={handleRelease}
                 disabled={loading}
               >
                 <Unlock className="h-3 w-3 mr-1" />
                 Release
+              </Button>
+            )}
+            {contributor && !post.resolved && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleResolve}
+                disabled={loading}
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Mark Done
+              </Button>
+            )}
+            {contributor && post.resolved && (
+              <Button
+                size="sm"
+                className="bg-purple-500 hover:bg-purple-600 text-white"
+                onClick={handleUnresolve}
+                disabled={loading}
+              >
+                <CircleDashed className="h-3 w-3 mr-1" />
+                Reopen
               </Button>
             )}
             <a

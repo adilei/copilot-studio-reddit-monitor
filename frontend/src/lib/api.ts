@@ -26,6 +26,8 @@ export interface Post {
   resolved_at: string | null
   resolved_by: number | null
   resolved_by_name: string | null
+  product_area_id: number | null
+  product_area_name: string | null
 }
 
 export interface PostDetail extends Post {
@@ -144,11 +146,19 @@ export async function getPosts(params?: {
   resolved?: boolean
   status?: "waiting_for_pickup" | "in_progress" | "handled"
   clustered?: boolean
+  product_area_ids?: number[]
 }): Promise<Post[]> {
   const searchParams = new URLSearchParams()
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) searchParams.append(key, String(value))
+      if (value !== undefined) {
+        // Handle arrays (like product_area_ids) by appending each value
+        if (Array.isArray(value)) {
+          value.forEach((v) => searchParams.append(key, String(v)))
+        } else {
+          searchParams.append(key, String(value))
+        }
+      }
     })
   }
   const query = searchParams.toString()

@@ -6,12 +6,12 @@ from datetime import datetime, timedelta
 from app.database import get_db
 from app.models import Contributor, ContributorReply, Post
 from app.schemas import ContributorCreate, ContributorResponse, ReaderCreate
-from app.auth import get_current_user, require_contributor_write
+from app.auth import require_registered_user, require_contributor_write
 
 router = APIRouter(
     prefix="/api/contributors",
     tags=["contributors"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_registered_user)],
 )
 
 

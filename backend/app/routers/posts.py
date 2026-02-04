@@ -5,7 +5,7 @@ from typing import Literal
 from datetime import datetime
 
 from app.database import get_db
-from app.models import Post, Analysis, Contributor, PostThemeMapping
+from app.models import Post, Analysis, Contributor, PostThemeMapping, ProductArea
 from app.schemas import (
     PostResponse,
     PostDetail,
@@ -41,6 +41,7 @@ def list_posts(
     resolved: bool | None = None,
     status: Literal["waiting_for_pickup", "in_progress", "handled"] | None = None,
     clustered: bool | None = None,
+    product_area_ids: list[int] | None = Query(None),
     db: Session = Depends(get_db),
 ):
     """List posts with filtering and pagination."""
@@ -79,6 +80,25 @@ def list_posts(
             query = query.filter(Post.id.in_(clustered_post_ids))
         else:
             query = query.filter(~Post.id.in_(clustered_post_ids))
+    # Filter by product area (from latest analysis)
+    if product_area_ids:
+        # Subquery to get the latest analysis ID for each post
+        latest_analysis_for_pa = (
+            db.query(
+                Analysis.post_id,
+                func.max(Analysis.id).label("max_id")
+            )
+            .group_by(Analysis.post_id)
+            .subquery()
+        )
+        # Get post IDs where latest analysis has matching product_area_id
+        matching_pa_posts = (
+            db.query(Analysis.post_id)
+            .join(latest_analysis_for_pa, Analysis.id == latest_analysis_for_pa.c.max_id)
+            .filter(Analysis.product_area_id.in_(product_area_ids))
+            .subquery()
+        )
+        query = query.filter(Post.id.in_(matching_pa_posts))
     # Unified status filter (workflow states)
     if status:
         from app.models import ContributorReply
@@ -134,6 +154,9 @@ def list_posts(
     # Execute with pagination
     posts = query.offset(skip).limit(limit).all()
 
+    # Build product area name lookup
+    product_areas = {pa.id: pa.name for pa in db.query(ProductArea).all()}
+
     # Build response with latest sentiment info
     result = []
     for post in posts:
@@ -160,12 +183,17 @@ def list_posts(
             "resolved_at": post.resolved_at,
             "resolved_by": post.resolved_by,
             "resolved_by_name": post.resolved_contributor.name if post.resolved_contributor else None,
+            "product_area_id": None,
+            "product_area_name": None,
         }
 
         if post.latest_analysis:
             post_dict["latest_sentiment"] = post.latest_analysis.sentiment
             post_dict["latest_sentiment_score"] = post.latest_analysis.sentiment_score
             post_dict["is_warning"] = post.latest_analysis.is_warning or False
+            post_dict["product_area_id"] = post.latest_analysis.product_area_id
+            if post.latest_analysis.product_area_id:
+                post_dict["product_area_name"] = product_areas.get(post.latest_analysis.product_area_id)
 
         result.append(PostResponse(**post_dict))
 
@@ -195,6 +223,15 @@ def get_post(post_id: str, db: Session = Depends(get_db)):
             )
         )
 
+    # Get product area name
+    product_area_id = None
+    product_area_name = None
+    if post.latest_analysis and post.latest_analysis.product_area_id:
+        product_area_id = post.latest_analysis.product_area_id
+        pa = db.query(ProductArea).filter(ProductArea.id == product_area_id).first()
+        if pa:
+            product_area_name = pa.name
+
     return PostDetail(
         id=post.id,
         subreddit=post.subreddit,
@@ -218,6 +255,8 @@ def get_post(post_id: str, db: Session = Depends(get_db)):
         resolved_at=post.resolved_at,
         resolved_by=post.resolved_by,
         resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
+        product_area_id=product_area_id,
+        product_area_name=product_area_name,
         analyses=[AnalysisResponse.model_validate(a) for a in post.analyses],
         contributor_replies=replies,
     )
@@ -281,30 +320,14 @@ def checkout_post(
     db.commit()
     db.refresh(post)
 
-    return PostResponse(
-        id=post.id,
-        subreddit=post.subreddit,
-        title=post.title,
-        body=post.body,
-        author=post.author,
-        url=post.url,
-        score=post.score,
-        num_comments=post.num_comments,
-        created_utc=post.created_utc,
-        scraped_at=post.scraped_at,
-        is_analyzed=post.is_analyzed,
-        latest_sentiment=post.latest_analysis.sentiment if post.latest_analysis else None,
-        latest_sentiment_score=post.latest_analysis.sentiment_score if post.latest_analysis else None,
-        is_warning=post.latest_analysis.is_warning if post.latest_analysis else False,
-        has_contributor_reply=len(post.contributor_replies) > 0,
-        checked_out_by=post.checked_out_by,
-        checked_out_by_name=post.checked_out_contributor.name if post.checked_out_contributor else None,
-        checked_out_at=post.checked_out_at,
-        resolved=bool(post.resolved),
-        resolved_at=post.resolved_at,
-        resolved_by=post.resolved_by,
-        resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
-    )
+    # Get product area name if needed
+    product_areas = None
+    if post.latest_analysis and post.latest_analysis.product_area_id:
+        pa = db.query(ProductArea).filter(ProductArea.id == post.latest_analysis.product_area_id).first()
+        if pa:
+            product_areas = {pa.id: pa.name}
+
+    return _build_post_response(post, product_areas)
 
 
 @router.post("/{post_id}/release", response_model=PostResponse)
@@ -336,34 +359,25 @@ def release_post(
     db.commit()
     db.refresh(post)
 
-    return PostResponse(
-        id=post.id,
-        subreddit=post.subreddit,
-        title=post.title,
-        body=post.body,
-        author=post.author,
-        url=post.url,
-        score=post.score,
-        num_comments=post.num_comments,
-        created_utc=post.created_utc,
-        scraped_at=post.scraped_at,
-        is_analyzed=post.is_analyzed,
-        latest_sentiment=post.latest_analysis.sentiment if post.latest_analysis else None,
-        latest_sentiment_score=post.latest_analysis.sentiment_score if post.latest_analysis else None,
-        is_warning=post.latest_analysis.is_warning if post.latest_analysis else False,
-        has_contributor_reply=len(post.contributor_replies) > 0,
-        checked_out_by=post.checked_out_by,
-        checked_out_by_name=None,
-        checked_out_at=post.checked_out_at,
-        resolved=bool(post.resolved),
-        resolved_at=post.resolved_at,
-        resolved_by=post.resolved_by,
-        resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
-    )
+    # Get product area name if needed
+    product_areas = None
+    if post.latest_analysis and post.latest_analysis.product_area_id:
+        pa = db.query(ProductArea).filter(ProductArea.id == post.latest_analysis.product_area_id).first()
+        if pa:
+            product_areas = {pa.id: pa.name}
+
+    return _build_post_response(post, product_areas)
 
 
-def _build_post_response(post: Post) -> PostResponse:
+def _build_post_response(post: Post, product_areas: dict[int, str] | None = None) -> PostResponse:
     """Helper to build PostResponse from Post model."""
+    product_area_id = None
+    product_area_name = None
+    if post.latest_analysis and post.latest_analysis.product_area_id:
+        product_area_id = post.latest_analysis.product_area_id
+        if product_areas:
+            product_area_name = product_areas.get(product_area_id)
+
     return PostResponse(
         id=post.id,
         subreddit=post.subreddit,
@@ -387,6 +401,8 @@ def _build_post_response(post: Post) -> PostResponse:
         resolved_at=post.resolved_at,
         resolved_by=post.resolved_by,
         resolved_by_name=post.resolved_contributor.name if post.resolved_contributor else None,
+        product_area_id=product_area_id,
+        product_area_name=product_area_name,
     )
 
 

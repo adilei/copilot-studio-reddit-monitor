@@ -60,6 +60,9 @@ class PostResponse(PostBase):
     resolved_at: datetime | None = None
     resolved_by: int | None = None
     resolved_by_name: str | None = None
+    # Product area from latest analysis
+    product_area_id: int | None = None
+    product_area_name: str | None = None
 
     class Config:
         from_attributes = True

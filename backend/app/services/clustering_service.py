@@ -53,25 +53,41 @@ Examples of product area assignment:
 - "Can't get my agent to work in Teams but test chat is fine" → Product Area 7 (Channels) - Teams channel is the blocker
 - "Flow action fails with timeout" → Product Area 1 (Agent Flows) - flow execution is the blocker
 
-THEME NAMING - Focus on what users are trying to accomplish:
-- Good: "Connecting SharePoint as a knowledge source" (what they want to do)
-- Bad: "SharePoint sync failures" (technical symptom)
-- Good: "Understanding why the agent gives wrong answers" (user's goal)
-- Bad: "Hallucination issues" (jargon)
+THEME NAMING - Each theme captures a user goal and what's blocking them:
 
-For each theme you discover:
-- Name it based on what users WANT TO DO (their goal, not the technical problem)
-- Describe what users are trying to accomplish and why they're struggling
-- Identify which product area is the SOURCE of their frustration
-- List which post INDICES (the numbers 0-{max_index}) exhibit this theme
+User goals (what they want to achieve):
+- "Get responses based on SharePoint documents"
+- "Set up a recurring trigger for an agent"
+- "Have the agent respond on Teams"
+- "Upload files for the agent to analyze"
 
-Return a JSON object with this structure:
+Blockers (what's preventing them):
+- "don't know how to configure it"
+- "getting an error or exception"
+- "responses are wrong or inaccurate"
+- "times out or fails silently"
+- "works in test chat but not in Teams/production"
+
+Theme name format: Combine goal + blocker naturally
+- Good: "Get SharePoint-based responses - answers are inaccurate"
+- Good: "Set up recurring trigger - don't know how"
+- Good: "Deploy agent to Teams - responses truncated"
+- Bad: "SharePoint issues" (no goal or blocker)
+- Bad: "Troubleshooting" (too vague)
+
+For each theme:
+- Name: Capture the user goal and what's blocking them
+- Description: Explain the goal, the blocker, and the impact
+- product_area_id: REQUIRED - choose the area causing the frustration
+- post_indices: Which posts belong to this theme
+
+Return JSON:
 {{
     "themes": [
         {{
-            "theme_name": "What users are trying to do",
-            "description": "Users want to X but are struggling because Y",
-            "product_area_id": <ID of area causing frustration, or null if unclear>,
+            "theme_name": "Get SharePoint-based responses - answers are inaccurate",
+            "description": "Users want to use SharePoint documents as a knowledge source but the agent returns wrong answers or misses relevant content",
+            "product_area_id": 2,
             "post_indices": [0, 3, 7]
         }}
     ]
@@ -100,19 +116,19 @@ Themes from all batches (each has a unique index):
 Your task: Merge semantically similar themes into 10-15 final consolidated themes.
 
 Rules:
-1. Combine themes where users have the SAME GOAL (e.g., "Connecting SharePoint as knowledge source" and "Setting up SharePoint knowledge base" = same user goal)
-2. Keep theme names focused on what users WANT TO DO, not technical symptoms
+1. Combine themes where users have the SAME GOAL (e.g., "Get SharePoint-based responses" themes should merge)
+2. Keep theme names capturing goal + blocker naturally
 3. If themes span multiple product areas, choose the one that is the primary SOURCE of frustration
 
 IMPORTANT: You do NOT need to handle post_ids - just tell me which theme indices to merge together.
 
-Return a JSON object with this structure:
+Return JSON:
 {{
     "themes": [
         {{
-            "theme_name": "What users are trying to do",
-            "description": "Users want to X but are struggling because Y",
-            "product_area_id": <ID number or null>,
+            "theme_name": "Get SharePoint-based responses - answers are inaccurate",
+            "description": "Users want to use SharePoint documents as a knowledge source but the agent returns wrong answers or misses relevant content",
+            "product_area_id": 2,
             "merged_from": [0, 3, 7]
         }}
     ]
@@ -135,7 +151,7 @@ New Posts (each has a unique index number):
 
 For each post, identify the ONE existing theme that best matches the user's PRIMARY pain point. If a post mentions multiple issues, focus on the MAIN frustration. If a post describes a goal not covered by existing themes, suggest a new theme.
 
-Return a JSON object with this structure:
+Return JSON:
 {{
     "assignments": [
         {{
@@ -146,9 +162,9 @@ Return a JSON object with this structure:
     ],
     "new_themes": [
         {{
-            "theme_name": "What users are trying to do",
-            "description": "Users want to X but are struggling because Y",
-            "product_area_id": <ID number or null>,
+            "theme_name": "Use custom connector with SSO - authentication loops",
+            "description": "Users want to authenticate via SSO with their custom connector but get stuck in a login loop",
+            "product_area_id": 5,
             "post_indices": [3, 7]
         }}
     ]

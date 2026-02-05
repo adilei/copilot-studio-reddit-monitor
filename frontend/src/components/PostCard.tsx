@@ -128,7 +128,7 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
             {isCheckedOutByOther && (
               <Badge variant="outline" className="text-orange-600 border-orange-300">
                 <Lock className="h-3 w-3 mr-1" />
-                {post.checked_out_by_name}
+                {post.checked_out_by_name} is handling
               </Badge>
             )}
             {post.has_contributor_reply && (
@@ -188,7 +188,7 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
                 Release
               </Button>
             )}
-            {contributor && !post.resolved && (
+            {contributor && !post.resolved && !isCheckedOutByOther && (
               <Button
                 size="sm"
                 variant="outline"

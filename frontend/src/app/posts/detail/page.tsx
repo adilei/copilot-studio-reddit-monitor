@@ -372,7 +372,7 @@ function PostDetailContent() {
               </div>
             ) : (
               <>
-                {canPerformActions && contributor ? (
+                {canPerformActions && contributor && !isCheckedOutByOther ? (
                   <Button
                     variant="outline"
                     onClick={handleResolve}
@@ -383,7 +383,9 @@ function PostDetailContent() {
                   </Button>
                 ) : (
                   <span className="text-sm text-muted-foreground">
-                    {permissionReason || "Select a contributor to mark this post as done"}
+                    {isCheckedOutByOther
+                      ? `Cannot mark as done while ${post?.checked_out_by_name} is handling`
+                      : permissionReason || "Select a contributor to mark this post as done"}
                   </span>
                 )}
               </>

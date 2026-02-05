@@ -423,10 +423,19 @@ def resolve_post(
     if not contributor:
         raise HTTPException(status_code=404, detail="Contributor not found")
 
-    # Mark as resolved
+    # Cannot resolve if checked out by someone else
+    if post.checked_out_by and post.checked_out_by != resolve_request.contributor_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot resolve - post is checked out by {post.checked_out_contributor.name}"
+        )
+
+    # Mark as resolved and release checkout
     post.resolved = 1
     post.resolved_at = datetime.utcnow()
     post.resolved_by = resolve_request.contributor_id
+    post.checked_out_by = None
+    post.checked_out_at = None
     db.commit()
     db.refresh(post)
 

@@ -48,21 +48,25 @@ def sync_data(
             logger.info(f"Override mode: deleted {posts_deleted} posts and {deleted_replies} replies")
 
         # 1. Process contributors first (for FK resolution)
+        # Load existing contributors FIRST, then let sync updates override
         contributor_map: dict[str, Contributor] = {}  # handle -> Contributor
+        all_contributors = db.query(Contributor).all()
+        for c in all_contributors:
+            if c.reddit_handle:  # Skip contributors without reddit handles
+                contributor_map[c.reddit_handle.lower()] = c
 
+        # Now process incoming contributors - updates will override stale map entries
         if request.contributors:
             for contrib_data in request.contributors:
                 handle_lower = contrib_data.reddit_handle.lower()
-                existing = db.query(Contributor).filter(
-                    Contributor.reddit_handle.ilike(contrib_data.reddit_handle)
-                ).first()
+                existing = contributor_map.get(handle_lower)
 
                 if existing:
                     # Update existing contributor
                     existing.name = contrib_data.name
                     existing.role = contrib_data.role
                     existing.active = contrib_data.active
-                    contributor_map[handle_lower] = existing
+                    # Map already has correct reference, no need to re-add
                     contributors_updated += 1
                 else:
                     # Create new contributor
@@ -76,11 +80,6 @@ def sync_data(
                     db.flush()  # Get the ID
                     contributor_map[handle_lower] = contributor
                     contributors_created += 1
-
-        # Build map of existing contributors for reply processing
-        all_contributors = db.query(Contributor).all()
-        for c in all_contributors:
-            contributor_map[c.reddit_handle.lower()] = c
 
         # 2. Process posts
         for post_data in request.posts:

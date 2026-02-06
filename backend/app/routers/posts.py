@@ -309,9 +309,10 @@ def checkout_post(
 
     # Check if already checked out by someone else
     if post.checked_out_by and post.checked_out_by != checkout_request.contributor_id:
+        checked_out_name = post.checked_out_contributor.name if post.checked_out_contributor else "another contributor"
         raise HTTPException(
             status_code=409,
-            detail=f"Post already checked out by {post.checked_out_contributor.name}"
+            detail=f"Post already checked out by {checked_out_name}"
         )
 
     # Checkout the post
@@ -425,9 +426,10 @@ def resolve_post(
 
     # Cannot resolve if checked out by someone else
     if post.checked_out_by and post.checked_out_by != resolve_request.contributor_id:
+        checked_out_name = post.checked_out_contributor.name if post.checked_out_contributor else "another contributor"
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot resolve - post is checked out by {post.checked_out_contributor.name}"
+            detail=f"Cannot resolve - post is checked out by {checked_out_name}"
         )
 
     # Mark as resolved and release checkout

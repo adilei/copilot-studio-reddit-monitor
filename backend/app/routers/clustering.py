@@ -34,23 +34,34 @@ def trigger_clustering_run(
     _: None = Depends(require_contributor_write),
 ):
     """Trigger a new clustering run (full or incremental). Requires contributor access."""
-    # Check if a clustering run is already in progress
-    existing_run = (
+    # Create new clustering run record with "pending" status first
+    clustering_run = ClusteringRun(
+        run_type=request.run_type,
+        status="pending",
+    )
+    db.add(clustering_run)
+    db.commit()
+    db.refresh(clustering_run)
+
+    # Now check if any OTHER run is running (atomic check after our insert)
+    # This prevents race condition: if two requests create pending runs simultaneously,
+    # both will see the other's pending/running status and one will fail
+    existing_running = (
         db.query(ClusteringRun)
-        .filter(ClusteringRun.status == "running")
+        .filter(ClusteringRun.status.in_(["running", "pending"]))
+        .filter(ClusteringRun.id != clustering_run.id)
         .first()
     )
-    if existing_run:
+    if existing_running:
+        # Another run exists - delete ours and fail
+        db.delete(clustering_run)
+        db.commit()
         raise HTTPException(
             status_code=409, detail="A clustering run is already in progress"
         )
 
-    # Create new clustering run record
-    clustering_run = ClusteringRun(
-        run_type=request.run_type,
-        status="running",
-    )
-    db.add(clustering_run)
+    # Safe to proceed - update to running
+    clustering_run.status = "running"
     db.commit()
     db.refresh(clustering_run)
 

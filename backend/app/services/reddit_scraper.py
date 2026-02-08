@@ -11,6 +11,32 @@ from app.models import Post, Contributor, ContributorReply, Analysis
 
 logger = logging.getLogger(__name__)
 
+# Retry configuration for rate limiting
+MAX_RETRIES = 3
+BASE_DELAY = 15  # seconds (retry sequence: 15s, 30s, 60s)
+
+
+def _request_with_retry(client: httpx.Client, method: str, url: str, **kwargs) -> httpx.Response:
+    """
+    Make an HTTP request with retry on 429 (rate limit) using exponential backoff.
+    Backoff sequence: 5s, 10s, 20s (then gives up)
+    """
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            response = client.request(method, url, **kwargs)
+            response.raise_for_status()
+            return response
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < MAX_RETRIES:
+                delay = BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    f"Rate limited (429) on {url}. "
+                    f"Retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})..."
+                )
+                time.sleep(delay)
+            else:
+                raise
+
 
 class RedditScraper:
     """Reddit scraper using public JSON API - fetches latest posts from r/CopilotStudio."""
@@ -84,8 +110,7 @@ class RedditScraper:
                     params["after"] = after
 
                 with httpx.Client(headers=self.headers, timeout=30) as client:
-                    response = client.get(url, params=params)
-                    response.raise_for_status()
+                    response = _request_with_retry(client, "GET", url, params=params)
                     data = response.json()
 
                 children = data.get("data", {}).get("children", [])
@@ -159,9 +184,15 @@ class RedditScraper:
         # (includes posts that already have some replies, in case more were added)
         posts = db.query(Post).order_by(Post.created_utc.desc()).limit(100).all()
 
+        delay = 2  # seconds between requests
         for post in posts:
-            self._check_post_replies(db, post, contributor_handles)
-            time.sleep(0.5)  # Rate limiting
+            rate_limited = self._check_post_replies(db, post, contributor_handles)
+            if rate_limited:
+                logger.warning("Rate limited - cooling down for 60s before continuing")
+                time.sleep(60)
+                delay = 4  # slower pace after hitting a rate limit
+            else:
+                time.sleep(delay)
 
     def _analyze_pending_posts(self, db: Session):
         """Analyze posts that haven't been analyzed yet."""
@@ -187,24 +218,32 @@ class RedditScraper:
             except Exception as e:
                 logger.error(f"Failed to analyze post {post.id}: {str(e)}")
 
-    def _check_post_replies(self, db: Session, post: Post, contributor_handles: dict):
-        """Check a single post for contributor replies."""
+    def _check_post_replies(self, db: Session, post: Post, contributor_handles: dict) -> bool:
+        """Check a single post for contributor replies. Returns True if rate-limited."""
         try:
             url = f"{self.base_url}/comments/{post.id}.json"
+            params = {"depth": 10, "limit": 500}
 
             with httpx.Client(headers=self.headers, timeout=30) as client:
-                response = client.get(url)
-                response.raise_for_status()
+                response = _request_with_retry(client, "GET", url, params=params)
                 data = response.json()
 
             if len(data) < 2:
-                return
+                return False
 
             comments = data[1].get("data", {}).get("children", [])
             self._check_comments_recursive(db, post, comments, contributor_handles)
+            return False
 
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                logger.error(f"Rate limited checking replies for post {post.id}")
+                return True
+            logger.error(f"Error checking replies for post {post.id}: {str(e)}")
+            return False
         except Exception as e:
             logger.error(f"Error checking replies for post {post.id}: {str(e)}")
+            return False
 
     def check_contributor_replies(self, db: Session, post_id: str):
         """Check a specific post for replies from known contributors."""
@@ -223,10 +262,10 @@ class RedditScraper:
 
         try:
             url = f"{self.base_url}/comments/{post_id}.json"
+            params = {"depth": 10, "limit": 500}
 
             with httpx.Client(headers=self.headers, timeout=30) as client:
-                response = client.get(url)
-                response.raise_for_status()
+                response = _request_with_retry(client, "GET", url, params=params)
                 data = response.json()
 
             if len(data) < 2:

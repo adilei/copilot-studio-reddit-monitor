@@ -90,35 +90,35 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <Link href={`/posts/detail?id=${post.id}`}>
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <Link href={`/posts/detail?id=${post.id}`} className="flex-1 min-w-0">
               <CardTitle className="text-base font-medium hover:text-primary cursor-pointer line-clamp-2">
                 {post.title}
               </CardTitle>
             </Link>
-            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground flex-wrap">
-              <span>r/{post.subreddit}</span>
-              <span>·</span>
-              <span>u/{post.author}</span>
-              <span>·</span>
-              <span>{formatRelativeTime(post.created_utc)}</span>
-              {post.product_area_name && (
-                <>
-                  <span>·</span>
-                  <Badge variant="secondary" className="text-xs font-normal">
-                    {post.product_area_name}
-                  </Badge>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-1">
             <SentimentBadge
               sentiment={post.latest_sentiment}
               score={post.latest_sentiment_score}
               isWarning={post.is_warning}
             />
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span>r/{post.subreddit}</span>
+            <span>·</span>
+            <span>u/{post.author}</span>
+            <span>·</span>
+            <span>{formatRelativeTime(post.created_utc)}</span>
+            {post.product_area_name && (
+              <>
+                <span>·</span>
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {post.product_area_name}
+                </Badge>
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
             {!post.is_analyzed && (
               <Badge variant="outline" className="text-yellow-600 border-yellow-300">
                 <Sparkles className="h-3 w-3 mr-1" />

@@ -180,9 +180,12 @@ class RedditScraper:
         contributor_handles = {c.reddit_handle.lower(): c for c in contributors}
         logger.info(f"Checking replies from {len(contributors)} contributors")
 
-        # Check the 100 most recent posts for contributor replies
-        # (includes posts that already have some replies, in case more were added)
-        posts = db.query(Post).order_by(Post.created_utc.desc()).limit(100).all()
+        # Check recent posts that aren't already resolved or handled
+        posts = db.query(Post).filter(
+            Post.resolved == False,
+            Post.has_contributor_reply == False,
+        ).order_by(Post.created_utc.desc()).limit(100).all()
+        logger.info(f"Checking {len(posts)} unhandled posts for replies")
 
         delay = 2  # seconds between requests
         for post in posts:

@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     # Search queries
     search_queries: str = "copilot studio,power virtual agents"
 
+    # VAPID keys for Web Push notifications
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    vapid_claims_email: str = "mailto:admin@microsoft.com"
+
     @property
     def subreddit_list(self) -> list[str]:
         return [s.strip() for s in self.target_subreddits.split(",")]

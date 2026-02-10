@@ -523,3 +523,88 @@ export async function updateTheme(
 export async function getHeatmapData(): Promise<HeatmapResponse> {
   return fetchApi<HeatmapResponse>("/api/clustering/heatmap")
 }
+
+// Notifications
+export interface NotificationItem {
+  id: number
+  notification_type: string
+  title: string
+  body: string
+  post_id: string
+  theme_id: number | null
+  product_area_name: string | null
+  read: boolean
+  created_at: string
+}
+
+export interface NotificationPreferences {
+  boiling_enabled: boolean
+  negative_enabled: boolean
+  product_areas: number[]
+  push_enabled: boolean
+}
+
+export interface PushSubscriptionData {
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
+export async function getNotifications(params?: {
+  contributor_id?: number
+  skip?: number
+  limit?: number
+  unread_only?: boolean
+}): Promise<NotificationItem[]> {
+  const searchParams = new URLSearchParams()
+  if (params?.contributor_id !== undefined) searchParams.set("contributor_id", String(params.contributor_id))
+  if (params?.skip !== undefined) searchParams.set("skip", String(params.skip))
+  if (params?.limit !== undefined) searchParams.set("limit", String(params.limit))
+  if (params?.unread_only !== undefined) searchParams.set("unread_only", String(params.unread_only))
+  const query = searchParams.toString()
+  return fetchApi<NotificationItem[]>(`/api/notifications${query ? `?${query}` : ""}`)
+}
+
+export async function getUnreadCount(contributorId: number): Promise<{ unread_count: number }> {
+  return fetchApi<{ unread_count: number }>(`/api/notifications/unread-count?contributor_id=${contributorId}`)
+}
+
+export async function markNotificationRead(id: number, contributorId: number): Promise<void> {
+  await fetchApi(`/api/notifications/${id}/read?contributor_id=${contributorId}`, { method: "POST" })
+}
+
+export async function markAllNotificationsRead(contributorId: number): Promise<void> {
+  await fetchApi(`/api/notifications/read-all?contributor_id=${contributorId}`, { method: "POST" })
+}
+
+export async function getNotificationPreferences(contributorId: number): Promise<NotificationPreferences> {
+  return fetchApi<NotificationPreferences>(`/api/notifications/preferences?contributor_id=${contributorId}`)
+}
+
+export async function updateNotificationPreferences(
+  prefs: Partial<NotificationPreferences>,
+  contributorId: number
+): Promise<NotificationPreferences> {
+  return fetchApi<NotificationPreferences>(`/api/notifications/preferences?contributor_id=${contributorId}`, {
+    method: "PUT",
+    body: JSON.stringify(prefs),
+  })
+}
+
+export async function subscribeToPush(subscription: PushSubscriptionData, contributorId: number): Promise<void> {
+  await fetchApi(`/api/notifications/push/subscribe?contributor_id=${contributorId}`, {
+    method: "POST",
+    body: JSON.stringify(subscription),
+  })
+}
+
+export async function unsubscribeFromPush(endpoint: string, contributorId: number): Promise<void> {
+  await fetchApi(`/api/notifications/push/unsubscribe?contributor_id=${contributorId}`, {
+    method: "POST",
+    body: JSON.stringify({ endpoint }),
+  })
+}
+
+export async function getVapidPublicKey(): Promise<{ vapid_public_key: string }> {
+  return fetchApi<{ vapid_public_key: string }>("/api/notifications/push/vapid-key")
+}

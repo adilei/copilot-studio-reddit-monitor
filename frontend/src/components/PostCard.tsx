@@ -154,7 +154,7 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
             </p>
           </Link>
         )}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <ThumbsUp className="h-4 w-4" />
@@ -165,7 +165,7 @@ export function PostCard({ post, onPostUpdate }: PostCardProps) {
               {post.num_comments}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {contributor && !post.checked_out_by && (
               <Button
                 size="sm"

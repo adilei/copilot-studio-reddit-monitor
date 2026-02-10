@@ -2,12 +2,15 @@
 
 import { AuthProvider } from "@/lib/auth-context"
 import { ContributorProvider } from "@/lib/contributor-context"
+import { NotificationProvider } from "@/lib/notification-context"
 import { ReactNode } from "react"
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <ContributorProvider>{children}</ContributorProvider>
+      <ContributorProvider>
+        <NotificationProvider>{children}</NotificationProvider>
+      </ContributorProvider>
     </AuthProvider>
   )
 }

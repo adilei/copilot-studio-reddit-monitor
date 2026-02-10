@@ -64,7 +64,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
@@ -161,7 +161,7 @@ export function Dashboard() {
       {totalWarningCount > 0 ? (
         <Card className="border-orange-200 bg-orange-50/50">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-lg flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-orange-600" />
                 Boiling Posts

@@ -86,8 +86,8 @@ function ThemeCard({ theme, onClick }: { theme: PainTheme; onClick: () => void }
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground shrink-0">
-            <span className="text-sm">{theme.post_count} posts</span>
+          <div className="flex items-center gap-2 text-muted-foreground shrink-0 self-start">
+            <span className="text-sm whitespace-nowrap">{theme.post_count} posts</span>
             <ChevronRight className="h-4 w-4" />
           </div>
         </div>
@@ -128,7 +128,7 @@ function MultiSelectFilter({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="min-w-[200px] justify-start"
+          className="w-full sm:w-auto sm:min-w-[200px] justify-start"
         >
           {selected.length === 0 ? (
             <span className="text-muted-foreground">{placeholder}</span>
@@ -355,9 +355,9 @@ function ClusteringPageContent() {
   })
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3 space-y-3">
         <div>
           <h1 className="text-2xl font-bold">Themes</h1>
           <p className="text-muted-foreground">
@@ -471,7 +471,7 @@ function ClusteringPageContent() {
       </div>
 
       {/* Stats Row */}
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
         <span>{mainThemes.length} recurring themes</span>
         <span>{totalPosts} posts</span>
         {clusteringStatus?.completed_at && (

@@ -15,6 +15,7 @@ from app.routers import (
     product_areas_router,
     clustering_router,
     auth_router,
+    notifications_router,
 )
 from app.services.scheduler import scheduler_service
 
@@ -74,6 +75,7 @@ app.include_router(scraper_router)
 app.include_router(sync_router)
 app.include_router(product_areas_router)
 app.include_router(clustering_router)
+app.include_router(notifications_router)
 
 
 @app.get("/")

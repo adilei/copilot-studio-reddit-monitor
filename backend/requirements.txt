@@ -29,6 +29,10 @@ pydantic-settings==2.1.0
 python-jose[cryptography]==3.3.0
 cachetools==5.3.2
 
+# Web Push notifications
+pywebpush==2.0.1
+py-vapid==1.9.2
+
 # Development
 pytest==7.4.4
 pytest-asyncio==0.23.4

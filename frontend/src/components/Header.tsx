@@ -11,14 +11,21 @@ import {
 import { Button } from "@/components/ui/button"
 import { useContributor } from "@/lib/contributor-context"
 import { useAuth } from "@/lib/auth-context"
-import { User, ChevronDown, Check, LogIn, LogOut, Copy } from "lucide-react"
+import { User, ChevronDown, Check, LogIn, LogOut, Copy, Menu } from "lucide-react"
+import { NotificationBell } from "./NotificationBell"
 
-export function Header() {
+export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { contributor, contributors, setContributor, loading } = useContributor()
   const { user, isAuthenticated, isLoading: authLoading, authEnabled, login, logout, getAccessToken } = useAuth()
 
   return (
-    <header className="h-14 border-b bg-card flex items-center justify-end px-6 gap-4">
+    <header className="h-14 border-b bg-card flex items-center justify-between px-4 md:px-6 gap-2 md:gap-4">
+      <Button variant="ghost" size="sm" className="md:hidden" onClick={onMenuClick}>
+        <Menu className="h-5 w-5" />
+      </Button>
+      <div className="hidden md:block flex-1" />
+      <div className="flex items-center gap-2 md:gap-4">
+      <NotificationBell />
       {/* Auth section - only show if auth is enabled on backend */}
       {authEnabled && authLoading ? (
         <span className="text-sm text-muted-foreground">Loading...</span>
@@ -135,6 +142,7 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      </div>
     </header>
   )
 }

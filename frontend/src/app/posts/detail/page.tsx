@@ -181,7 +181,7 @@ function PostDetailContent() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={() => router.back()}>
@@ -193,10 +193,10 @@ function PostDetailContent() {
       {/* Post content */}
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-2 min-w-0 flex-1">
               <CardTitle className="text-xl">{post.title}</CardTitle>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span>r/{post.subreddit}</span>
                 <span>·</span>
                 <span>u/{post.author}</span>
@@ -208,7 +208,7 @@ function PostDetailContent() {
               href={post.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-primary hover:underline"
+              className="flex items-center gap-1 text-primary hover:underline shrink-0"
             >
               View on Reddit
               <ExternalLink className="h-4 w-4" />

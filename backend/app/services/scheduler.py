@@ -40,6 +40,15 @@ class SchedulerService:
             replace_existing=True,
         )
 
+        # Add notification job - runs every 5 minutes to generate notifications
+        self.scheduler.add_job(
+            self._run_notification_job,
+            trigger=IntervalTrigger(minutes=5),
+            id="generate_notifications",
+            name="Generate Notifications",
+            replace_existing=True,
+        )
+
         # Add clustering job - runs every 6 hours to assign new posts to themes
         self.scheduler.add_job(
             self._run_clustering_job,
@@ -100,6 +109,19 @@ class SchedulerService:
 
         except Exception as e:
             logger.error(f"Analysis job failed: {str(e)}")
+        finally:
+            db.close()
+
+    def _run_notification_job(self):
+        """Generate notifications for users based on their preferences."""
+        from app.services.notification_service import generate_notifications
+        db = SessionLocal()
+        try:
+            count = generate_notifications(db)
+            if count > 0:
+                logger.info(f"Notification job: created {count} notifications")
+        except Exception as e:
+            logger.error(f"Notification job failed: {str(e)}")
         finally:
             db.close()
 

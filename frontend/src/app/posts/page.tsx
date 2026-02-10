@@ -61,7 +61,7 @@ function ProductAreaFilter({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="min-w-[200px] justify-start"
+          className="w-full sm:w-auto sm:min-w-[200px] justify-start"
         >
           {selected.length === 0 ? (
             <span className="text-muted-foreground">Filter by product area</span>
@@ -253,8 +253,8 @@ function PostsContent() {
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">
             {filters.clustered === false ? "Unclustered Posts" : "Posts"}
@@ -279,7 +279,7 @@ function PostsContent() {
             value={filters.status || "all"}
             onValueChange={(value) => handleFilterChange("status", value)}
           >
-            <SelectTrigger className="w-[170px]">
+            <SelectTrigger className="w-full sm:w-[170px]">
               <SelectValue placeholder="All Posts" />
             </SelectTrigger>
             <SelectContent>
@@ -300,7 +300,7 @@ function PostsContent() {
             value={filters.sentiment || "all"}
             onValueChange={(value) => handleFilterChange("sentiment", value)}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
@@ -328,7 +328,7 @@ function PostsContent() {
             placeholder="Search posts..."
             value={filters.search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-[250px]"
+            className="w-full sm:w-[250px]"
           />
         </div>
 

@@ -99,7 +99,7 @@ export function ContributorList({ contributors, readers = [], onUpdate }: Contri
     <div className="space-y-8">
       {/* Contributors section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Microsoft Contributors</h2>
           {canManageUsers ? (
             <Button onClick={() => setShowContributorForm(!showContributorForm)} variant="outline">
@@ -237,7 +237,7 @@ export function ContributorList({ contributors, readers = [], onUpdate }: Contri
 
       {/* Readers section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold">Readers</h2>
             <p className="text-sm text-muted-foreground">

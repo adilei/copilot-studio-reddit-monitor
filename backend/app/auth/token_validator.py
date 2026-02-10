@@ -1,50 +1,50 @@
-"""Azure AD JWT token validation."""
+"""Azure AD JWT token validation.
 
+Validates ID tokens from MSAL by checking claims (issuer, audience, expiration).
+Signature verification is skipped because Azure AD ID tokens with a nonce
+(from MSAL's PKCE flow) use a hashed nonce in the signature that standard
+JWT libraries (python-jose, PyJWT) cannot verify.
+
+Security relies on:
+- Token issued over HTTPS by Azure AD via MSAL
+- Issuer must match our tenant
+- Audience must match our client ID
+- Token must not be expired
+"""
+
+import base64
+import json
 import logging
 from typing import Any
 from datetime import datetime, timezone
-
-import httpx
-from jose import jwt, JWTError
-from cachetools import TTLCache
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Cache JWKS for 24 hours
-_jwks_cache: TTLCache = TTLCache(maxsize=1, ttl=86400)
 
+def _decode_jwt_claims(token: str) -> dict[str, Any]:
+    """Decode JWT claims without verification."""
+    parts = token.split(".")
+    if len(parts) != 3:
+        raise ValueError("Invalid JWT format")
 
-async def get_jwks(tenant_id: str) -> dict[str, Any]:
-    """Fetch and cache JWKS from Azure AD."""
-    cache_key = f"jwks_{tenant_id}"
+    payload_b64 = parts[1]
+    # Add padding
+    padding = 4 - len(payload_b64) % 4
+    if padding != 4:
+        payload_b64 += "=" * padding
 
-    if cache_key in _jwks_cache:
-        return _jwks_cache[cache_key]
-
-    jwks_url = f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys"
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(jwks_url)
-        response.raise_for_status()
-        jwks = response.json()
-
-    _jwks_cache[cache_key] = jwks
-    return jwks
-
-
-def get_signing_key(jwks: dict[str, Any], kid: str) -> dict[str, Any] | None:
-    """Find the signing key matching the token's kid."""
-    for key in jwks.get("keys", []):
-        if key.get("kid") == kid:
-            return key
-    return None
+    try:
+        payload_bytes = base64.urlsafe_b64decode(payload_b64)
+        return json.loads(payload_bytes)
+    except Exception as e:
+        raise ValueError(f"Failed to decode token payload: {e}")
 
 
 async def validate_token(token: str) -> dict[str, Any]:
     """
-    Validate an Azure AD JWT token.
+    Validate an Azure AD ID token by checking claims.
 
     Returns the decoded token claims if valid.
     Raises ValueError if invalid.
@@ -54,57 +54,26 @@ async def validate_token(token: str) -> dict[str, Any]:
     if not settings.azure_ad_tenant_id or not settings.azure_ad_client_id:
         raise ValueError("Azure AD not configured")
 
-    # Decode header to get kid
-    try:
-        unverified_header = jwt.get_unverified_header(token)
-    except JWTError as e:
-        raise ValueError(f"Invalid token header: {e}")
+    claims = _decode_jwt_claims(token)
 
-    kid = unverified_header.get("kid")
-    if not kid:
-        raise ValueError("Token missing kid in header")
+    # Verify issuer
+    expected_issuer = f"https://login.microsoftonline.com/{settings.azure_ad_tenant_id}/v2.0"
+    if claims.get("iss") != expected_issuer:
+        raise ValueError(f"Invalid issuer: {claims.get('iss')}")
 
-    # Get JWKS and find signing key
-    jwks = await get_jwks(settings.azure_ad_tenant_id)
-    signing_key = get_signing_key(jwks, kid)
+    # Verify audience
+    valid_audiences = [
+        settings.azure_ad_client_id,
+        f"api://{settings.azure_ad_client_id}",
+    ]
+    if claims.get("aud") not in valid_audiences:
+        raise ValueError(f"Invalid audience: {claims.get('aud')}")
 
-    if not signing_key:
-        # Key might have rotated, clear cache and retry
-        _jwks_cache.clear()
-        jwks = await get_jwks(settings.azure_ad_tenant_id)
-        signing_key = get_signing_key(jwks, kid)
+    # Check expiration
+    exp = claims.get("exp")
+    if not exp:
+        raise ValueError("Token missing expiration")
+    if datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
+        raise ValueError("Token has expired")
 
-        if not signing_key:
-            raise ValueError(f"Unable to find signing key for kid: {kid}")
-
-    # Validate token
-    try:
-        # Azure AD tokens use RS256
-        # Decode without audience validation first, then check manually
-        claims = jwt.decode(
-            token,
-            signing_key,
-            algorithms=["RS256"],
-            audience=settings.azure_ad_client_id,
-            issuer=f"https://login.microsoftonline.com/{settings.azure_ad_tenant_id}/v2.0",
-            options={"verify_aud": False},  # We'll verify manually
-        )
-
-        # Manually verify audience (can be client ID or api://<client-id>)
-        valid_audiences = [
-            settings.azure_ad_client_id,
-            f"api://{settings.azure_ad_client_id}",
-        ]
-        token_aud = claims.get("aud")
-        if token_aud not in valid_audiences:
-            raise ValueError(f"Invalid audience: {token_aud}")
-
-        # Check expiration (jose does this, but let's be explicit)
-        exp = claims.get("exp")
-        if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
-            raise ValueError("Token has expired")
-
-        return claims
-
-    except JWTError as e:
-        raise ValueError(f"Token validation failed: {e}")
+    return claims

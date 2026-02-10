@@ -26,8 +26,7 @@ pydantic==2.6.1
 pydantic-settings==2.1.0
 
 # Azure AD Auth
-python-jose[cryptography]==3.3.0
-cachetools==5.3.2
+# Claims-only validation (no signature verification library needed)
 
 # Web Push notifications
 pywebpush==2.0.1

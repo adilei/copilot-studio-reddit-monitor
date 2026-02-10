@@ -284,6 +284,7 @@ function PostsContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Posts</SelectItem>
+              <SelectItem value="unhandled">Unhandled</SelectItem>
               <SelectItem value="waiting_for_pickup">Waiting for Pickup</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
               <SelectItem value="handled">Completed</SelectItem>

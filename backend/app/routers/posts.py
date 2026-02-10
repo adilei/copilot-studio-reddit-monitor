@@ -39,7 +39,7 @@ def list_posts(
     available_only: bool = False,
     has_reply: bool | None = None,
     resolved: bool | None = None,
-    status: Literal["waiting_for_pickup", "in_progress", "handled"] | None = None,
+    status: Literal["waiting_for_pickup", "in_progress", "handled", "unhandled"] | None = None,
     clustered: bool | None = None,
     product_area_ids: list[int] | None = Query(None),
     db: Session = Depends(get_db),
@@ -111,6 +111,10 @@ def list_posts(
         elif status == "in_progress":
             # Checked out AND not handled
             query = query.filter(Post.checked_out_by != None)
+            query = query.filter(~Post.id.in_(posts_with_replies))
+            query = query.filter(Post.resolved == 0)
+        elif status == "unhandled":
+            # No reply AND not resolved (waiting for pickup OR in progress)
             query = query.filter(~Post.id.in_(posts_with_replies))
             query = query.filter(Post.resolved == 0)
         elif status == "handled":

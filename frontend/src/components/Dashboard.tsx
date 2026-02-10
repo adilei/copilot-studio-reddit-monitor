@@ -170,7 +170,7 @@ export function Dashboard() {
                 </span>
               </CardTitle>
               <Link
-                href="/posts?sentiment=negative"
+                href="/posts?sentiment=negative&status=unhandled"
                 className="text-sm text-orange-600 hover:text-orange-800 hover:underline"
               >
                 View all negative →
@@ -210,7 +210,7 @@ export function Dashboard() {
                 No urgent issues, but {stats?.unhandled_negative_count} negative sentiment post{(stats?.unhandled_negative_count ?? 0) !== 1 ? 's' : ''} still need attention.
               </p>
               <Link
-                href="/posts?sentiment=negative"
+                href="/posts?sentiment=negative&status=unhandled"
                 className="text-sm text-yellow-700 hover:text-yellow-900 hover:underline mt-2 inline-block"
               >
                 View negative posts →

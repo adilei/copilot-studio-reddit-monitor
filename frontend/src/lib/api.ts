@@ -162,7 +162,7 @@ export async function getPosts(params?: {
   available_only?: boolean
   has_reply?: boolean
   resolved?: boolean
-  status?: "waiting_for_pickup" | "in_progress" | "handled"
+  status?: "waiting_for_pickup" | "in_progress" | "handled" | "unhandled"
   clustered?: boolean
   product_area_ids?: number[]
 }): Promise<Post[]> {

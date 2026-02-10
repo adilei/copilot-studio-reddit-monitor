@@ -134,6 +134,44 @@ No manual cleanup needed — the backend automatically removes subscriptions tha
 
 ---
 
+## Installing the App (PWA)
+
+### Android (Chrome)
+
+1. Open the app URL in Chrome
+2. Chrome shows an "Install app" banner at the bottom — tap **Install**
+3. If no banner: tap the **three-dot menu** (top right) → **Install app** or **Add to Home Screen**
+4. The app icon appears on your home screen
+5. Open the app → bell icon → gear → **Enable push** → allow notifications when prompted
+
+### iOS (Safari)
+
+1. Open the app URL in **Safari** (not Chrome — iOS requires Safari for PWA)
+2. Tap the **Share** button (square with arrow at the bottom)
+3. Scroll down and tap **Add to Home Screen**
+4. Tap **Add** in the top right
+5. Open the app from home screen
+6. **Note**: iOS push notifications require iOS 16.4+ and the app must be opened from the home screen icon (not Safari)
+
+### Desktop (Chrome / Edge)
+
+1. Open the app URL
+2. Look for the **install icon** in the address bar (monitor with down arrow)
+3. Click **Install**
+4. Or: three-dot menu → **Install Copilot Studio Social Monitor**
+
+### Enabling Push Notifications
+
+After installing:
+1. Open the app
+2. Click the **bell icon** in the header
+3. Click the **gear icon** to open notification preferences
+4. Click **Enable** under "Push notifications"
+5. **Allow** when the browser asks for notification permission
+6. Done — you'll receive native notifications for boiling posts, negative sentiment, and selected product areas
+
+---
+
 ## Troubleshooting
 
 ### Push not arriving

@@ -16,7 +16,7 @@ import {
   type PainTheme,
   type ProductArea,
 } from "@/lib/api"
-import { RefreshCw, Play, Loader2, ChevronRight, AlertCircle, X, Check, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react"
+import { RefreshCw, Play, Loader2, ChevronRight, AlertCircle, X, Check, ArrowUpDown, Filter } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -31,10 +31,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-
-// Minimum posts required for a theme to be "recurring" (shown in main list)
-// Themes below this threshold are shown in the collapsible "emerging" section
-const MIN_RECURRING_POSTS = parseInt(process.env.NEXT_PUBLIC_MIN_RECURRING_POSTS || '5', 10)
 
 function getSeverityBadge(severity: number) {
   switch (severity) {
@@ -59,38 +55,36 @@ function ThemeCard({ theme, onClick }: { theme: PainTheme; onClick: () => void }
       className="cursor-pointer hover:bg-accent/50 transition-colors"
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex items-center gap-3">
-              {getSeverityBadge(theme.severity)}
-              <h3 className="font-medium">{theme.name}</h3>
-            </div>
-            {theme.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {theme.description}
-              </p>
-            )}
-            {theme.product_area_tags && theme.product_area_tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {theme.product_area_tags.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant="secondary"
-                    className="text-xs font-normal"
-                  >
-                    {tag.name}
-                    <span className="ml-1 text-muted-foreground">({tag.post_count})</span>
-                  </Badge>
-                ))}
-              </div>
-            )}
+      <CardContent className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            {getSeverityBadge(theme.severity)}
+            <h3 className="font-medium">{theme.name}</h3>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground shrink-0 self-start">
+          <div className="flex items-center gap-1 text-muted-foreground shrink-0">
             <span className="text-sm whitespace-nowrap">{theme.post_count} posts</span>
             <ChevronRight className="h-4 w-4" />
           </div>
         </div>
+        {theme.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {theme.description}
+          </p>
+        )}
+        {theme.product_area_tags && theme.product_area_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {theme.product_area_tags.map((tag) => (
+              <Badge
+                key={tag.id}
+                variant="secondary"
+                className="text-xs font-normal"
+              >
+                {tag.name}
+                <span className="ml-1 text-muted-foreground">({tag.post_count})</span>
+              </Badge>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -201,19 +195,17 @@ function ClusteringPageContent() {
 
   // View options state
   const [sortBy, setSortBy] = useState<'severity' | 'post_count' | 'newest' | 'name'>('severity')
-  const [emergingExpanded, setEmergingExpanded] = useState(false)
+  const [minPosts, setMinPosts] = useState(5)
   const [viewOptionsLoaded, setViewOptionsLoaded] = useState(false)
 
   // Load view options from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('clustering_view_options')
-    // Clean up old keys
-    localStorage.removeItem('clustering_settings')
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
         if (parsed.sortBy) setSortBy(parsed.sortBy)
-        if (parsed.emergingExpanded) setEmergingExpanded(parsed.emergingExpanded)
+        if (parsed.minPosts != null) setMinPosts(parsed.minPosts)
       } catch (e) {
         // Ignore invalid JSON
       }
@@ -224,9 +216,9 @@ function ClusteringPageContent() {
   // Save view options to localStorage when changed (only after initial load)
   useEffect(() => {
     if (viewOptionsLoaded) {
-      localStorage.setItem('clustering_view_options', JSON.stringify({ sortBy, emergingExpanded }))
+      localStorage.setItem('clustering_view_options', JSON.stringify({ sortBy, minPosts }))
     }
-  }, [sortBy, emergingExpanded, viewOptionsLoaded])
+  }, [sortBy, minPosts, viewOptionsLoaded])
 
   // Parse URL params for initial filter state
   useEffect(() => {
@@ -337,12 +329,12 @@ function ClusteringPageContent() {
     })
   }
 
-  // Split themes into main (recurring) and emerging (below threshold)
-  const mainThemes = sortThemes(themes.filter(t => t.post_count >= MIN_RECURRING_POSTS))
-  const emergingThemes = sortThemes(themes.filter(t => t.post_count < MIN_RECURRING_POSTS))
+  // Filter themes by minimum post count
+  const visibleThemes = sortThemes(themes.filter(t => t.post_count >= minPosts))
+  const hiddenCount = themes.length - visibleThemes.length
 
-  // Count stats (from main themes only for display)
-  const totalPosts = mainThemes.reduce((sum, t) => sum + t.post_count, 0)
+  // Count stats
+  const totalPosts = visibleThemes.reduce((sum, t) => sum + t.post_count, 0)
 
   // Compute theme counts per product area (from all themes)
   const themeCounts: Record<number, number> = {}
@@ -357,7 +349,7 @@ function ClusteringPageContent() {
   return (
     <div className="p-4 md:p-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 space-y-3">
+      <div className="space-y-3">
         <div>
           <h1 className="text-2xl font-bold">Themes</h1>
           <p className="text-muted-foreground">
@@ -365,7 +357,7 @@ function ClusteringPageContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -456,7 +448,7 @@ function ClusteringPageContent() {
 
         {/* Sort dropdown */}
         <Select value={sortBy} onValueChange={(val) => setSortBy(val as typeof sortBy)}>
-          <SelectTrigger className="w-[160px] h-9">
+          <SelectTrigger className="w-full sm:w-[160px] h-9">
             <ArrowUpDown className="h-4 w-4 mr-2 text-muted-foreground" />
             <span className="text-muted-foreground mr-1">Sort:</span>
             <SelectValue />
@@ -468,12 +460,31 @@ function ClusteringPageContent() {
             <SelectItem value="name">Name</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Min posts dropdown */}
+        <Select value={minPosts.toString()} onValueChange={(val) => setMinPosts(parseInt(val))}>
+          <SelectTrigger className="w-full sm:w-[160px] h-9">
+            <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+            <span className="text-muted-foreground mr-1">Min:</span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">1 post</SelectItem>
+            <SelectItem value="2">2 posts</SelectItem>
+            <SelectItem value="3">3 posts</SelectItem>
+            <SelectItem value="5">5 posts</SelectItem>
+            <SelectItem value="10">10 posts</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Stats Row */}
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-        <span>{mainThemes.length} recurring themes</span>
+        <span>{visibleThemes.length} themes</span>
         <span>{totalPosts} posts</span>
+        {hiddenCount > 0 && (
+          <span>({hiddenCount} hidden)</span>
+        )}
         {clusteringStatus?.completed_at && (
           <span>
             Last analyzed: {new Date(clusteringStatus.completed_at).toLocaleString()}
@@ -502,10 +513,10 @@ function ClusteringPageContent() {
         </div>
       )}
 
-      {/* Main Theme Cards (2+ posts) */}
-      {mainThemes.length > 0 ? (
+      {/* Theme Cards */}
+      {visibleThemes.length > 0 ? (
         <div className="space-y-3">
-          {mainThemes.map((theme) => (
+          {visibleThemes.map((theme) => (
             <ThemeCard
               key={theme.id}
               theme={theme}
@@ -541,36 +552,14 @@ function ClusteringPageContent() {
             )}
           </CardContent>
         </Card>
-      ) : null}
-
-      {/* Emerging Themes Section (1 post each) */}
-      {emergingThemes.length > 0 && (
-        <div className="border-t pt-4">
-          <button
-            onClick={() => setEmergingExpanded(!emergingExpanded)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
-          >
-            {emergingExpanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-            <span>
-              {emergingThemes.length} emerging {emergingThemes.length === 1 ? 'theme' : 'themes'} (&lt;{MIN_RECURRING_POSTS} posts)
-            </span>
-          </button>
-          {emergingExpanded && (
-            <div className="space-y-3 mt-4">
-              {emergingThemes.map((theme) => (
-                <ThemeCard
-                  key={theme.id}
-                  theme={theme}
-                  onClick={() => handleThemeClick(theme.id)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              No themes match current filters. Try lowering the minimum posts threshold.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Unclustered Posts Link */}

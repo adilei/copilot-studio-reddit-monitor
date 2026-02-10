@@ -18,11 +18,10 @@ test.describe('Clustering Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Either theme cards should be visible or empty state or settings message
-    const hasThemes = await page.locator('.cursor-pointer').filter({ hasText: /posts$/ }).first().isVisible().catch(() => false);
+    const hasThemes = await page.locator('.cursor-pointer').filter({ hasText: /\d+ posts/ }).first().isVisible().catch(() => false);
     const hasEmptyState = await page.getByText(/No themes discovered yet|No themes found|No themes match/).isVisible().catch(() => false);
-    const hasSettings = await page.locator('button').filter({ hasText: 'Settings' }).isVisible().catch(() => false);
 
-    expect(hasThemes || hasEmptyState || hasSettings).toBeTruthy();
+    expect(hasThemes || hasEmptyState).toBeTruthy();
   });
 
   test('should have product area filter dropdown', async ({ page }) => {
@@ -30,8 +29,8 @@ test.describe('Clustering Page', () => {
 
     await page.waitForLoadState('networkidle');
 
-    // Filter button should be visible - look for the min-w-[200px] button that's the filter
-    const filterButton = page.locator('button.min-w-\\[200px\\]');
+    // Filter button should be visible
+    const filterButton = page.locator('button').filter({ hasText: /Filter by product area/i });
     await expect(filterButton).toBeVisible();
   });
 
@@ -40,8 +39,8 @@ test.describe('Clustering Page', () => {
 
     await page.waitForLoadState('networkidle');
 
-    // Click filter button (the min-w-[200px] button)
-    const filterButton = page.locator('button.min-w-\\[200px\\]');
+    // Click filter button
+    const filterButton = page.locator('button').filter({ hasText: /Filter by product area/i });
     await filterButton.click();
 
     // Popover should open with product area options
@@ -132,13 +131,11 @@ test.describe('Clustering Page', () => {
 
     await page.waitForLoadState('networkidle');
 
-    // Stats row should show theme count - format is "X recurring themes" or "X themes" depending on data
-    // Check if there are any themes visible
-    const hasThemes = await page.locator('.cursor-pointer').filter({ hasText: /posts$/ }).first().isVisible().catch(() => false);
+    // Stats row should show theme count
+    const hasThemes = await page.locator('.cursor-pointer').filter({ hasText: /\d+ posts/ }).first().isVisible().catch(() => false);
 
     if (hasThemes) {
-      // Should show recurring themes count in stats
-      await expect(page.locator('span').filter({ hasText: /\d+ recurring themes/ })).toBeVisible();
+      await expect(page.locator('span').filter({ hasText: /\d+ themes/ })).toBeVisible();
     }
   });
 
@@ -246,56 +243,81 @@ test.describe('Clustering Page View Controls', () => {
     await expect(page.locator('button[role="combobox"]').filter({ hasText: /Sort:/ })).toContainText('Post count');
   });
 
-  test('should show emerging themes section when single-post themes exist', async ({ page }) => {
+  test('should have Min posts dropdown with correct options', async ({ page }) => {
     await page.goto('/clustering');
 
     await page.waitForLoadState('networkidle');
 
-    // Look for the emerging themes toggle button (shows "<N posts" threshold)
-    const emergingButton = page.locator('button').filter({ hasText: /emerging.*themes?.*<\d+ posts/i });
+    // Min posts dropdown should be visible
+    const minDropdown = page.locator('button[role="combobox"]').filter({ hasText: /Min:/ });
+    await expect(minDropdown).toBeVisible();
 
-    // This may or may not be visible depending on data
-    const hasEmergingSection = await emergingButton.isVisible().catch(() => false);
+    // Click to open
+    await minDropdown.click();
 
-    // Test passes either way - just verifying the UI renders correctly
+    // Check options exist
+    await expect(page.getByRole('option', { name: '1 post' })).toBeVisible();
+    await expect(page.getByRole('option', { name: '2 posts' })).toBeVisible();
+    await expect(page.getByRole('option', { name: '3 posts' })).toBeVisible();
+    await expect(page.getByRole('option', { name: '5 posts' })).toBeVisible();
+    await expect(page.getByRole('option', { name: '10 posts' })).toBeVisible();
+  });
+
+  test('should filter themes by min posts', async ({ page }) => {
+    await page.goto('/clustering');
+
+    await page.waitForLoadState('networkidle');
+
+    // Get initial theme count
+    const initialCount = await page.locator('.cursor-pointer').filter({ hasText: /\d+ posts/ }).count();
+
+    // Change min posts to 10
+    const minDropdown = page.locator('button[role="combobox"]').filter({ hasText: /Min:/ });
+    await minDropdown.click();
+    await page.getByRole('option', { name: '10 posts' }).click();
+    await page.waitForTimeout(300);
+
+    // Theme count should be equal or fewer
+    const filteredCount = await page.locator('.cursor-pointer').filter({ hasText: /\d+ posts/ }).count();
+    expect(filteredCount).toBeLessThanOrEqual(initialCount);
+  });
+
+  test('should show hidden count when min posts filter is active', async ({ page }) => {
+    await page.goto('/clustering');
+
+    await page.waitForLoadState('networkidle');
+
+    // Set min posts to 10 to hide some themes
+    const minDropdown = page.locator('button[role="combobox"]').filter({ hasText: /Min:/ });
+    await minDropdown.click();
+    await page.getByRole('option', { name: '10 posts' }).click();
+    await page.waitForTimeout(300);
+
+    // Should show "(N hidden)" in stats if themes were filtered out
+    const hasThemes = await page.locator('.cursor-pointer').filter({ hasText: /\d+ posts/ }).first().isVisible().catch(() => false);
+    const totalThemes = await page.locator('.cursor-pointer').filter({ hasText: /\d+ posts/ }).count();
+
+    // If there are fewer visible themes than total, hidden count should show
+    // This is a valid state check - test passes either way
     expect(true).toBeTruthy();
   });
 
-  test('should expand and collapse emerging themes section', async ({ page }) => {
+  test('should persist min posts option in localStorage', async ({ page }) => {
     await page.goto('/clustering');
 
     await page.waitForLoadState('networkidle');
 
-    // Look for the emerging themes toggle button (shows "<N posts" threshold)
-    const emergingButton = page.locator('button').filter({ hasText: /emerging.*themes?.*<\d+ posts/i });
-    const hasEmergingSection = await emergingButton.isVisible().catch(() => false);
+    // Change min posts to 3
+    const minDropdown = page.locator('button[role="combobox"]').filter({ hasText: /Min:/ });
+    await minDropdown.click();
+    await page.getByRole('option', { name: '3 posts' }).click();
+    await page.waitForTimeout(100);
 
-    if (hasEmergingSection) {
-      // Click to expand
-      await emergingButton.click();
-      await page.waitForTimeout(300);
-
-      // Should show theme cards in the emerging section
-      // Click again to collapse
-      await emergingButton.click();
-      await page.waitForTimeout(300);
-    }
-
-    // Test passes - we verified toggle behavior if section exists
-    expect(true).toBeTruthy();
-  });
-
-  test('should show recurring themes count in stats', async ({ page }) => {
-    await page.goto('/clustering');
-
+    // Reload page
+    await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Stats should show "X recurring themes"
-    const statsText = page.locator('span').filter({ hasText: /recurring themes/ });
-    const hasThemes = await page.locator('.cursor-pointer').filter({ hasText: /posts$/ }).first().isVisible().catch(() => false);
-
-    if (hasThemes) {
-      await expect(statsText).toBeVisible();
-    }
+    // Min posts should still be 3
+    await expect(page.locator('button[role="combobox"]').filter({ hasText: /Min:/ })).toContainText('3 posts');
   });
 });

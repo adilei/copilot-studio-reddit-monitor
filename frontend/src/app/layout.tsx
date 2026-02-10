@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: "Copilot Studio Social Monitor",
   description: "Monitor Reddit for Copilot Studio discussions and analyze sentiment",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -29,9 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
+      <head></head>
       <body className={inter.className}>
         <Providers>
           <AppShell>{children}</AppShell>

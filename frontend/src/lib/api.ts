@@ -610,19 +610,19 @@ export async function updateNotificationPreferences(
 }
 
 export async function subscribeToPush(subscription: PushSubscriptionData, contributorId: number): Promise<void> {
-  await fetchApi(`/api/notifications/push/subscribe?contributor_id=${contributorId}`, {
+  await fetchApi(`/api/notifications/push-subscribe?contributor_id=${contributorId}`, {
     method: "POST",
     body: JSON.stringify(subscription),
   })
 }
 
 export async function unsubscribeFromPush(endpoint: string, contributorId: number): Promise<void> {
-  await fetchApi(`/api/notifications/push/unsubscribe?contributor_id=${contributorId}`, {
-    method: "POST",
-    body: JSON.stringify({ endpoint }),
+  const params = new URLSearchParams({ endpoint, contributor_id: String(contributorId) })
+  await fetchApi(`/api/notifications/push-subscribe?${params.toString()}`, {
+    method: "DELETE",
   })
 }
 
 export async function getVapidPublicKey(): Promise<{ vapid_public_key: string }> {
-  return fetchApi<{ vapid_public_key: string }>("/api/notifications/push/vapid-key")
+  return fetchApi<{ vapid_public_key: string }>("/api/notifications/vapid-public-key")
 }

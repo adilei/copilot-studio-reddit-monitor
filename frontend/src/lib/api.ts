@@ -131,6 +131,24 @@ async function fetchApi<T>(
   return response.json()
 }
 
+// Like fetchApi but returns null on 401/403 instead of throwing.
+// Used for notification polling so it keeps working when tokens expire.
+async function fetchApiSoft<T>(
+  endpoint: string,
+  fallback: T,
+  options?: RequestInit
+): Promise<T> {
+  try {
+    return await fetchApi<T>(endpoint, options)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ""
+    if (msg.includes("401") || msg.includes("403")) {
+      return fallback
+    }
+    throw e
+  }
+}
+
 // Posts
 export async function getPosts(params?: {
   skip?: number
@@ -562,11 +580,11 @@ export async function getNotifications(params?: {
   if (params?.limit !== undefined) searchParams.set("limit", String(params.limit))
   if (params?.unread_only !== undefined) searchParams.set("unread_only", String(params.unread_only))
   const query = searchParams.toString()
-  return fetchApi<NotificationItem[]>(`/api/notifications${query ? `?${query}` : ""}`)
+  return fetchApiSoft(`/api/notifications${query ? `?${query}` : ""}`, [] as NotificationItem[])
 }
 
 export async function getUnreadCount(contributorId: number): Promise<{ unread_count: number }> {
-  return fetchApi<{ unread_count: number }>(`/api/notifications/unread-count?contributor_id=${contributorId}`)
+  return fetchApiSoft(`/api/notifications/unread-count?contributor_id=${contributorId}`, { unread_count: 0 })
 }
 
 export async function markNotificationRead(id: number, contributorId: number): Promise<void> {

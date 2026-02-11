@@ -32,6 +32,7 @@ Additionally, set is_warning=true if the user exhibits ANY of these escalation s
 - Deadline pressure combined with product reliability concerns
 
 A polite help request or "how do I do X?" question is NEUTRAL, not negative.
+Note: Phrases like "something went wrong" or "an error occurred" are often product error messages being quoted, not expressions of user sentiment. Do not treat quoted error messages as escalation signals.
 Note: A post can be politely written but still warrant is_warning=true if the user is considering abandoning the product.
 
 Identify which Copilot Studio product area this post is PRIMARILY about (pick the single best match):

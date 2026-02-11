@@ -387,6 +387,50 @@ To configure:
 **Manual trigger:**
 - Go to Actions tab → "Scrape Reddit" or "Test Reddit Access" → Run workflow
 
+### Azure AD Authentication (February 2026)
+
+**Architecture**: Claims-only ID token validation (no signature verification).
+
+- Frontend uses MSAL React to get ID tokens via `acquireTokenSilent()` / `acquireTokenPopup()`
+- Backend validates claims only: issuer, audience (client ID), expiration
+- **Why no signature verification**: Azure AD ID tokens with a `nonce` (from MSAL's PKCE flow) have the signature computed over a SHA-256 hash of the nonce, but standard JWT libraries (`python-jose`, `PyJWT`) verify against the raw payload. This makes signature verification impossible without custom workarounds.
+- Security relies on: HTTPS transport, Azure AD issuer validation, audience matching, expiration check
+- App registration: `8451fcdd-4db4-428f-8e09-e26d8fb01367` (Microsoft corp tenant) — single SPA registration, no secrets, no "Expose an API" needed
+- No external JWT libraries needed — validation uses only Python stdlib (`base64`, `json`)
+
+**Key files**: `backend/app/auth/token_validator.py` (80 lines), `frontend/src/lib/auth-context.tsx`
+
+### PWA and Notifications (February 2026)
+
+**PWA Support**:
+- Manifest at `frontend/public/manifest.json`, service worker at `frontend/public/sw.js`
+- Installable on Android (Edge/Chrome) and desktop
+- Icons at `frontend/public/icons/icon-192.png` and `icon-512.png`
+
+**Notifications**:
+- In-app: Polling every 60s for unread count, bell icon with popover
+- Web Push: VAPID keys configured on EMEA, `pywebpush` sends to registered subscriptions
+- Notification types: `negative_post` (new negative sentiment), `boiling_post` (cluster growing fast)
+- Preferences per-contributor: toggle notification types, select product areas, enable/disable push
+
+**Known PWA Limitations (Edge Android)**:
+- `navigator.setAppBadge()` does NOT work on Edge Android — app icon badges won't show
+- Chrome Android has better PWA badge support, but Microsoft work profiles may restrict Chrome sign-in
+- Push notifications DO work on Edge Android (appear in notification tray)
+- In-app bell icon badge always works (it's just UI, not platform-dependent)
+
+### Contributor Alias Sync Issue (February 2026)
+
+**Problem**: Some contributors on EMEA were missing `microsoft_alias`, causing "Access Required" for signed-in users.
+
+**Root cause**: Contributors added via sync (`daily_sync.py` or `export_to_remote.py`) are created WITHOUT `microsoft_alias` — the export script only sends `name`, `reddit_handle`, `role`, `active`. Aliases must be set manually on EMEA via the Contributors page or API.
+
+**Fix**: Set aliases via API: `PATCH /api/contributors/{id}` with `{"name": "...", "reddit_handle": "...", "microsoft_alias": "alias"}`
+
+### Reply Checking Optimization (February 2026)
+
+The Reddit scraper now skips posts that are already `resolved=True` or `has_contributor_reply=True` when checking for new contributor replies. This reduces API calls to Reddit and helps avoid rate limiting (429 errors).
+
 ### Clustering Post ID Mismatch Bug (February 2026) - FIXED
 
 **Status:** Fixed

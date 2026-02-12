@@ -180,10 +180,11 @@ class RedditScraper:
         contributor_handles = {c.reddit_handle.lower(): c for c in contributors}
         logger.info(f"Checking replies from {len(contributors)} contributors")
 
-        # Check recent posts that aren't already resolved or handled
+        # Check recent posts that aren't already resolved or have a contributor reply
+        posts_with_replies = db.query(ContributorReply.post_id).distinct().subquery()
         posts = db.query(Post).filter(
-            Post.resolved == False,
-            Post.has_contributor_reply == False,
+            Post.resolved == 0,
+            ~Post.id.in_(posts_with_replies),
         ).order_by(Post.created_utc.desc()).limit(100).all()
         logger.info(f"Checking {len(posts)} unhandled posts for replies")
 

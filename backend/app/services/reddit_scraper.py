@@ -185,7 +185,7 @@ class RedditScraper:
         posts = db.query(Post).filter(
             Post.resolved == 0,
             ~Post.id.in_(posts_with_replies),
-        ).order_by(Post.created_utc.desc()).limit(100).all()
+        ).order_by(Post.created_utc.desc()).limit(75).all()
         logger.info(f"Checking {len(posts)} unhandled posts for replies")
 
         delay = 2  # seconds between requests

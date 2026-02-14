@@ -189,14 +189,26 @@ class RedditScraper:
         logger.info(f"Checking {len(posts)} unhandled posts for replies")
 
         delay = 2  # seconds between requests
+        dropped_posts = []
         for post in posts:
             rate_limited = self._check_post_replies(db, post, contributor_handles)
             if rate_limited:
+                dropped_posts.append(post)
                 logger.warning("Rate limited - cooling down for 60s before continuing")
                 time.sleep(60)
                 delay = 4  # slower pace after hitting a rate limit
             else:
                 time.sleep(delay)
+
+        # Retry dropped posts after a longer cooldown
+        if dropped_posts:
+            logger.info(f"Retrying {len(dropped_posts)} dropped posts after 120s cooldown")
+            time.sleep(120)
+            for post in dropped_posts:
+                rate_limited = self._check_post_replies(db, post, contributor_handles)
+                if rate_limited:
+                    logger.warning(f"Post {post.id} still rate limited after retry, skipping")
+                time.sleep(5)
 
     def _analyze_pending_posts(self, db: Session):
         """Analyze posts that haven't been analyzed yet."""

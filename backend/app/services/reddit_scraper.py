@@ -7,7 +7,7 @@ import time
 
 from sqlalchemy.orm import Session
 from app.config import get_settings
-from app.models import Post, Contributor, ContributorReply, Analysis
+from app.models import Post, Contributor, ContributorReply, Analysis, ScraperState
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,30 @@ class RedditScraper:
         self.last_sync_source_scraped_at: datetime | None = None
         self.last_sync_posts: int = 0
 
+    def load_state(self, db: Session):
+        """Load persisted state from database."""
+        state = db.query(ScraperState).first()
+        if state:
+            self.last_run = state.last_run
+            self.posts_scraped = state.posts_scraped or 0
+            self.last_synced_at = state.last_synced_at
+            self.last_sync_source_scraped_at = state.last_sync_source_scraped_at
+            self.last_sync_posts = state.last_sync_posts or 0
+            logger.info(f"Loaded scraper state: last_run={self.last_run}")
+
+    def _save_state(self, db: Session):
+        """Persist current state to database."""
+        state = db.query(ScraperState).first()
+        if not state:
+            state = ScraperState(id=1)
+            db.add(state)
+        state.last_run = self.last_run
+        state.posts_scraped = self.posts_scraped
+        state.last_synced_at = self.last_synced_at
+        state.last_sync_source_scraped_at = self.last_sync_source_scraped_at
+        state.last_sync_posts = self.last_sync_posts
+        db.commit()
+
     def scrape(
         self,
         db: Session,
@@ -90,6 +114,7 @@ class RedditScraper:
 
             self.last_run = datetime.now(timezone.utc)
             db.commit()
+            self._save_state(db)
 
         except Exception as e:
             logger.error(f"Scraper error: {str(e)}")

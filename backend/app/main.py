@@ -18,6 +18,7 @@ from app.routers import (
     notifications_router,
 )
 from app.services.scheduler import scheduler_service
+from app.services.reddit_scraper import scraper
 
 # Configure logging
 logging.basicConfig(
@@ -33,6 +34,13 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Copilot Studio Reddit Monitor...")
     init_db()
+    # Load persisted scraper state from DB
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        scraper.load_state(db)
+    finally:
+        db.close()
     scheduler_service.start()
     logger.info("Application started successfully")
 

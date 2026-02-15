@@ -3,6 +3,7 @@ from app.models.contributor import Contributor, ContributorReply
 from app.models.analysis import Analysis
 from app.models.clustering import ProductArea, PainTheme, PostThemeMapping, ClusteringRun
 from app.models.notification import Notification, NotificationPreference, PushSubscription
+from app.models.scraper_state import ScraperState
 
 __all__ = [
     "Post",
@@ -16,4 +17,5 @@ __all__ = [
     "Notification",
     "NotificationPreference",
     "PushSubscription",
+    "ScraperState",
 ]

@@ -34,7 +34,7 @@ def get_db():
 
 def init_db():
     """Initialize database tables."""
-    from app.models import post, contributor, analysis, clustering, notification  # noqa: F401
+    from app.models import post, contributor, analysis, clustering, notification, scraper_state  # noqa: F401
     Base.metadata.create_all(bind=engine)
     run_migrations()
     seed_product_areas()

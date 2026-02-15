@@ -161,6 +161,7 @@ def sync_data(
             # Also update last_run so the UI shows when data was actually scraped
             scraper.last_run = request.source_scraped_at
             scraper.posts_scraped = posts_created + posts_updated
+        scraper._save_state(db)
         logger.info(f"Updated scraper status: synced_at={synced_at}, source_scraped_at={request.source_scraped_at}")
 
         logger.info(

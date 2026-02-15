@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     azure_ad_tenant_id: str = ""
     azure_ad_client_id: str = ""
 
+    # Scrape source: "reddit" (direct) or "arctic_shift" (Arctic Shift mirror)
+    scrape_source: Literal["reddit", "arctic_shift"] = "reddit"
+    arctic_shift_base_url: str = "https://arctic-shift.photon-reddit.com"
+
     # Scheduler
     scrape_interval_hours: int = 1
 

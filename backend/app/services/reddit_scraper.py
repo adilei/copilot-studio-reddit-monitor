@@ -73,10 +73,16 @@ class RedditScraper:
         self.is_running = True
         self.errors = []
         self.posts_scraped = 0
+        use_arctic_shift = self.settings.scrape_source == "arctic_shift"
 
         try:
-            self._scrape_new_posts(db)
-            self._check_all_contributor_replies(db)
+            if use_arctic_shift:
+                logger.info("Using Arctic Shift as scrape source")
+                self._scrape_new_posts_arctic_shift(db)
+                self._check_all_contributor_replies_arctic_shift(db)
+            else:
+                self._scrape_new_posts(db)
+                self._check_all_contributor_replies(db)
             db.commit()
 
             # Analyze new posts
@@ -152,7 +158,7 @@ class RedditScraper:
         # Create new post
         post = Post(
             id=post_id,
-            subreddit=post_data.get("subreddit", self.subreddit),
+            subreddit=self.subreddit,
             title=post_data.get("title", ""),
             body=post_data.get("selftext") or None,
             author=post_data.get("author", "[deleted]"),
@@ -209,6 +215,111 @@ class RedditScraper:
                 if rate_limited:
                     logger.warning(f"Post {post.id} still rate limited after retry, skipping")
                 time.sleep(5)
+
+    # ── Arctic Shift implementations ────────────────────────────────────
+
+    def _scrape_new_posts_arctic_shift(self, db: Session):
+        """Fetch newest posts from r/CopilotStudio via Arctic Shift API."""
+        logger.info(f"Fetching new posts from r/{self.subreddit} via Arctic Shift")
+        base = self.settings.arctic_shift_base_url
+
+        # Use the most recent post's created_utc as the "after" cutoff
+        latest_post = db.query(Post).order_by(Post.created_utc.desc()).first()
+        after_ts = int(latest_post.created_utc.timestamp()) if latest_post else None
+
+        params: dict = {
+            "subreddit": self.subreddit,
+            "sort": "desc",
+            "limit": 100,
+        }
+        if after_ts:
+            params["after"] = after_ts
+
+        try:
+            with httpx.Client(timeout=30) as client:
+                response = client.get(f"{base}/api/posts/search", params=params)
+                response.raise_for_status()
+                data = response.json()
+
+            posts = data.get("data", [])
+            for post_data in posts:
+                self._save_post(db, post_data)
+
+            logger.info(f"Arctic Shift: fetched {len(posts)} posts, {self.posts_scraped} new")
+
+        except Exception as e:
+            logger.error(f"Arctic Shift post fetch error: {e}")
+            self.errors.append(str(e))
+
+    def _check_all_contributor_replies_arctic_shift(self, db: Session):
+        """Check for contributor replies via Arctic Shift comments search."""
+        contributors = db.query(Contributor).filter(
+            Contributor.active == True,
+            Contributor.reddit_handle.isnot(None)
+        ).all()
+        if not contributors:
+            logger.info("No active contributors to check")
+            return
+
+        logger.info(f"Checking replies from {len(contributors)} contributors via Arctic Shift")
+        base = self.settings.arctic_shift_base_url
+
+        # Look back 48 hours for new replies
+        cutoff = int((datetime.now(timezone.utc).timestamp()) - 48 * 3600)
+
+        # Build a set of post IDs we track so we only record replies for known posts
+        known_post_ids = {row[0] for row in db.query(Post.id).all()}
+
+        for contributor in contributors:
+            handle = contributor.reddit_handle
+            try:
+                params: dict = {
+                    "subreddit": self.subreddit,
+                    "author": handle,
+                    "after": cutoff,
+                    "sort": "desc",
+                    "limit": 100,
+                }
+                with httpx.Client(timeout=30) as client:
+                    response = client.get(f"{base}/api/comments/search", params=params)
+                    response.raise_for_status()
+                    data = response.json()
+
+                comments = data.get("data", [])
+                new_replies = 0
+                for comment in comments:
+                    # link_id is "t3_<post_id>" — strip the prefix
+                    link_id = comment.get("link_id", "")
+                    post_id = link_id.removeprefix("t3_")
+                    if post_id not in known_post_ids:
+                        continue
+
+                    comment_id = comment.get("id")
+                    existing = db.query(ContributorReply).filter(
+                        ContributorReply.comment_id == comment_id
+                    ).first()
+                    if existing:
+                        continue
+
+                    reply = ContributorReply(
+                        post_id=post_id,
+                        contributor_id=contributor.id,
+                        comment_id=comment_id,
+                        replied_at=datetime.fromtimestamp(
+                            comment.get("created_utc", 0), tz=timezone.utc
+                        ),
+                    )
+                    db.add(reply)
+                    new_replies += 1
+
+                if new_replies:
+                    logger.info(f"Arctic Shift: {new_replies} new replies from {contributor.name}")
+
+            except Exception as e:
+                logger.error(f"Arctic Shift reply check error for {handle}: {e}")
+                self.errors.append(f"Reply check failed for {handle}: {e}")
+
+    # ── Reddit implementations (original) ────────────────────────────────
 
     def _analyze_pending_posts(self, db: Session):
         """Analyze posts that haven't been analyzed yet."""

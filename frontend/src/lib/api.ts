@@ -542,6 +542,24 @@ export async function getHeatmapData(): Promise<HeatmapResponse> {
   return fetchApi<HeatmapResponse>("/api/clustering/heatmap")
 }
 
+// Scheduler status
+export interface SchedulerJob {
+  id: string
+  name: string
+  interval_seconds: number | null
+  next_run: string | null
+}
+
+export interface SchedulerStatus {
+  scheduler_running: boolean
+  scrape_source: string
+  jobs: SchedulerJob[]
+}
+
+export async function getSchedulerStatus(): Promise<SchedulerStatus> {
+  return fetchApi<SchedulerStatus>("/api/scheduler/status")
+}
+
 // Notifications
 export interface NotificationItem {
   id: number

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, FileText, Users, Home, Grid3X3, Layers, X } from "lucide-react"
+import { BarChart3, FileText, Users, Home, Grid3X3, Layers, X, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const navLinks = [
@@ -11,6 +11,7 @@ const navLinks = [
   { href: "/contributors", icon: Users, label: "Contributors" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/product-areas", icon: Layers, label: "Product Areas" },
+  { href: "/status", icon: Activity, label: "Status" },
 ]
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {

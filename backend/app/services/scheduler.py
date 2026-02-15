@@ -49,15 +49,6 @@ class SchedulerService:
             replace_existing=True,
         )
 
-        # Add clustering job - runs every 6 hours to assign new posts to themes
-        self.scheduler.add_job(
-            self._run_clustering_job,
-            trigger=IntervalTrigger(hours=6),
-            id="clustering_incremental",
-            name="Incremental Clustering",
-            replace_existing=True,
-        )
-
         self.scheduler.start()
         self._is_started = True
         logger.info(

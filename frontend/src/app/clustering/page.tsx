@@ -485,6 +485,15 @@ function ClusteringPageContent() {
         {hiddenCount > 0 && (
           <span>({hiddenCount} hidden)</span>
         )}
+        {unclusteredCount > 0 && (
+          <Link
+            href="/posts?clustered=false"
+            className="text-amber-600 hover:text-amber-700 hover:underline"
+            title="Will be processed on next scrape"
+          >
+            {unclusteredCount} unclustered
+          </Link>
+        )}
         {clusteringStatus?.completed_at && (
           <span>
             Last analyzed: {new Date(clusteringStatus.completed_at).toLocaleString()}
@@ -562,22 +571,6 @@ function ClusteringPageContent() {
         </Card>
       )}
 
-      {/* Unclustered Posts Link */}
-      {themes.length > 0 && (
-        <Card className="border-dashed">
-          <CardContent className="p-0">
-            <Link
-              href="/posts?clustered=false"
-              className="flex items-center justify-between p-4 hover:bg-accent rounded-lg transition-colors"
-            >
-              <span className="text-muted-foreground">
-                View unclustered posts ({unclusteredCount})
-              </span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

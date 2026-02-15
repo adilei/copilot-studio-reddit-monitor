@@ -105,3 +105,29 @@ def get_config():
     return {
         "auth_enabled": settings.auth_enabled,
     }
+
+
+@app.get("/api/scheduler/status")
+def get_scheduler_status():
+    """Get scheduled job status including next run times."""
+    from app.config import get_settings
+    settings = get_settings()
+
+    jobs = []
+    if scheduler_service.is_running:
+        for job in scheduler_service.scheduler.get_jobs():
+            interval_seconds = None
+            if hasattr(job.trigger, "interval"):
+                interval_seconds = int(job.trigger.interval.total_seconds())
+            jobs.append({
+                "id": job.id,
+                "name": job.name,
+                "interval_seconds": interval_seconds,
+                "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
+            })
+
+    return {
+        "scheduler_running": scheduler_service.is_running,
+        "scrape_source": settings.scrape_source,
+        "jobs": jobs,
+    }

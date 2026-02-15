@@ -72,7 +72,7 @@ class SchedulerService:
             logger.info("Scheduler stopped")
 
     def _run_scrape_job(self):
-        """Execute the scraping job."""
+        """Execute the scraping job, then run incremental clustering."""
         logger.info("Running scheduled scrape job")
 
         db = SessionLocal()
@@ -83,6 +83,9 @@ class SchedulerService:
             logger.error(f"Scheduled scrape failed: {str(e)}")
         finally:
             db.close()
+
+        # Run incremental clustering to assign new posts to themes
+        self._run_clustering_job()
 
     def _run_analysis_job(self):
         """Analyze posts without analyses in batches."""

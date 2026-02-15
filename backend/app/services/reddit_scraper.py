@@ -465,17 +465,33 @@ class RedditScraper:
                 nested = replies.get("data", {}).get("children", [])
                 self._check_comments_recursive(db, post, nested, contributor_handles)
 
-    def get_status(self) -> dict:
-        """Get current scraper status."""
+    def get_status(self, db: Session | None = None) -> dict:
+        """Get current scraper status. Reads persisted state from DB if available."""
+        last_run = self.last_run
+        posts_scraped = self.posts_scraped
+        last_synced_at = self.last_synced_at
+        last_sync_source_scraped_at = self.last_sync_source_scraped_at
+        last_sync_posts = self.last_sync_posts
+
+        # Fall back to DB for persisted fields (handles multi-worker scenarios)
+        if db and last_run is None:
+            state = db.query(ScraperState).first()
+            if state:
+                last_run = state.last_run
+                posts_scraped = state.posts_scraped or 0
+                last_synced_at = state.last_synced_at
+                last_sync_source_scraped_at = state.last_sync_source_scraped_at
+                last_sync_posts = state.last_sync_posts or 0
+
         return {
             "is_running": self.is_running,
-            "last_run": self.last_run,
-            "posts_scraped": self.posts_scraped,
+            "last_run": last_run,
+            "posts_scraped": posts_scraped,
             "errors": self.errors,
             # Sync info
-            "last_synced_at": self.last_synced_at,
-            "last_sync_source_scraped_at": self.last_sync_source_scraped_at,
-            "last_sync_posts": self.last_sync_posts,
+            "last_synced_at": last_synced_at,
+            "last_sync_source_scraped_at": last_sync_source_scraped_at,
+            "last_sync_posts": last_sync_posts,
         }
 
 

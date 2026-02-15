@@ -68,9 +68,9 @@ def trigger_scrape(
 
 
 @router.get("/status", response_model=ScrapeStatus)
-def get_scrape_status():
+def get_scrape_status(db: Session = Depends(get_db)):
     """Get the current scraper status."""
-    status = scraper.get_status()
+    status = scraper.get_status(db=db)
     return ScrapeStatus(
         is_running=status["is_running"],
         last_run=status["last_run"],

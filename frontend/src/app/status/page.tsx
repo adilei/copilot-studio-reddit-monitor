@@ -61,6 +61,14 @@ export default function StatusPage() {
     }
   }, [isAuthenticated, authLoading])
 
+  // Poll while something is running
+  const isAnythingRunning = scrapeStatus?.is_running || clusteringStatus?.status === "running"
+  useEffect(() => {
+    if (!isAnythingRunning) return
+    const interval = setInterval(loadData, 5000)
+    return () => clearInterval(interval)
+  }, [isAnythingRunning])
+
   async function loadData() {
     try {
       const [scrape, clustering, overview, heatmap, scheduler] = await Promise.all([
@@ -197,13 +205,18 @@ export default function StatusPage() {
                 {unclusteredCount} posts
               </Link>
             </StatusRow>
-            <StatusRow label="Last clustering">
-              {clusteringStatus?.completed_at ? (
+            <StatusRow label="Clustering status">
+              {clusteringStatus?.status === "running" ? (
+                <span className="flex items-center gap-1 text-blue-600">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Running ({clusteringStatus.run_type})
+                </span>
+              ) : clusteringStatus?.completed_at ? (
                 <span>
                   {formatRelativeTime(clusteringStatus.completed_at)}
                   <span className="text-muted-foreground ml-1">({clusteringStatus.run_type})</span>
                 </span>
-              ) : "Never"}
+              ) : "Never run"}
             </StatusRow>
             <StatusRow label="Next clustering">
               Runs after scrape

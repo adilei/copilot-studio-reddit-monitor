@@ -80,6 +80,10 @@ class SchedulerService:
 
     def _run_analysis_job(self):
         """Analyze posts without analyses in batches."""
+        if scraper.is_running:
+            logger.debug("Scraper is running, skipping analysis job")
+            return
+
         from app.services.llm_analyzer import analyzer
         from app.models import Post, Analysis
 
@@ -121,6 +125,10 @@ class SchedulerService:
 
     def _run_clustering_job(self):
         """Run incremental clustering to assign new posts to themes."""
+        if scraper.is_running:
+            logger.info("Scraper is running, skipping clustering job")
+            return
+
         from app.services.clustering_service import clustering_service
         from app.models import ClusteringRun
 

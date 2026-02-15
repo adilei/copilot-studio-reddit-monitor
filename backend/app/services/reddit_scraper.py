@@ -7,7 +7,7 @@ import time
 
 from sqlalchemy.orm import Session
 from app.config import get_settings
-from app.models import Post, Contributor, ContributorReply, Analysis, ScraperState
+from app.models import Post, Contributor, ContributorReply, Analysis, ScraperState, ClusteringRun
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,14 @@ class RedditScraper:
         """
         if self.is_running:
             logger.warning("Scraper is already running")
+            return 0
+
+        # Block scrape while clustering is running
+        running_clustering = db.query(ClusteringRun).filter(
+            ClusteringRun.status == "running"
+        ).first()
+        if running_clustering:
+            logger.warning("Clustering is running, skipping scrape")
             return 0
 
         self.is_running = True

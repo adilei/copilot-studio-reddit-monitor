@@ -177,6 +177,11 @@ def seed_product_areas():
                 "description": "Microsoft 365 Copilot APIs, SDKs (.NET, Python, TypeScript), REST API integration via OpenAPI, API plugins, Microsoft 365 Agents Toolkit for VS Code, Teams Toolkit, custom engine agents, SPFx integration",
                 "display_order": 12,
             },
+            {
+                "name": "Evaluations",
+                "description": "Agent evaluation and automated testing — test sets (generated from knowledge/topics, imported, or manual), test cases (question + expected response), evaluation methods (exact match, semantic similarity, intent recognition), success metrics and thresholds, pass/fail scoring, quality scores, knowledge source tracking, user profile simulation, regression testing across agent changes. Distinct from Analytics (usage/session reporting) and test chat (interactive single-message testing).",
+                "display_order": 14,
+            },
         ]
 
         for area_data in default_areas:

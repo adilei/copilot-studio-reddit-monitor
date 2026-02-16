@@ -11,10 +11,33 @@ import {
   type ScrapeStatus,
   type WarningPost,
 } from "@/lib/api"
-import { FileText, AlertTriangle, CheckCircle, Clock, AlertCircle, UserCheck } from "lucide-react"
+import { FileText, AlertTriangle, CheckCircle, Clock, AlertCircle, UserCheck, ChevronDown, ChevronRight } from "lucide-react"
 import { formatRelativeTime } from "@/lib/utils"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
+
+function ErrorsCollapsible({ errors }: { errors: string[] }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="text-sm border-t pt-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-red-600 hover:text-red-700 font-medium"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        <AlertCircle className="h-3 w-3" />
+        {errors.length} scraper {errors.length === 1 ? "error" : "errors"}
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+          {errors.map((err, i) => (
+            <p key={i} className="text-xs text-red-500 break-all">{err}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Dashboard() {
   const router = useRouter()
@@ -294,9 +317,7 @@ export function Dashboard() {
               )}
 
               {scrapeStatus.errors.length > 0 && (
-                <div className="text-sm text-red-500">
-                  Errors: {scrapeStatus.errors.join(", ")}
-                </div>
+                <ErrorsCollapsible errors={scrapeStatus.errors} />
               )}
             </div>
           </CardContent>

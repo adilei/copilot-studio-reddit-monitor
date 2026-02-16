@@ -210,7 +210,8 @@ class RedditScraper:
         """Check recent posts for contributor replies."""
         contributors = db.query(Contributor).filter(
             Contributor.active == True,
-            Contributor.reddit_handle.isnot(None)
+            Contributor.reddit_handle.isnot(None),
+            Contributor.reddit_handle != "",
         ).all()
         if not contributors:
             logger.info("No active contributors to check")
@@ -288,7 +289,8 @@ class RedditScraper:
         """Check for contributor replies via Arctic Shift comments search."""
         contributors = db.query(Contributor).filter(
             Contributor.active == True,
-            Contributor.reddit_handle.isnot(None)
+            Contributor.reddit_handle.isnot(None),
+            Contributor.reddit_handle != "",
         ).all()
         if not contributors:
             logger.info("No active contributors to check")
@@ -409,7 +411,8 @@ class RedditScraper:
         """Check a specific post for replies from known contributors."""
         contributors = db.query(Contributor).filter(
             Contributor.active == True,
-            Contributor.reddit_handle.isnot(None)
+            Contributor.reddit_handle.isnot(None),
+            Contributor.reddit_handle != "",
         ).all()
         if not contributors:
             return

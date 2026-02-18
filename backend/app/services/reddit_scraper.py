@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Literal
 import logging
 import time
+from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.orm import Session
 from app.config import get_settings
@@ -115,7 +116,11 @@ class RedditScraper:
             else:
                 self._scrape_new_posts(db)
                 self._check_all_contributor_replies(db)
-            db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                logger.warning("Duplicate post detected, rolling back and retrying")
+                db.rollback()
 
             # Analyze new posts
             self._analyze_pending_posts(db)
@@ -257,9 +262,9 @@ class RedditScraper:
         logger.info(f"Fetching new posts from r/{self.subreddit} via Arctic Shift")
         base = self.settings.arctic_shift_base_url
 
-        # Use the most recent post's created_utc as the "after" cutoff
+        # Use the most recent post's created_utc as the "after" cutoff (+1s to make exclusive)
         latest_post = db.query(Post).order_by(Post.created_utc.desc()).first()
-        after_ts = int(latest_post.created_utc.timestamp()) if latest_post else None
+        after_ts = int(latest_post.created_utc.timestamp()) + 1 if latest_post else None
 
         params: dict = {
             "subreddit": self.subreddit,
